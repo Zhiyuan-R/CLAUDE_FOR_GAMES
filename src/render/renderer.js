@@ -1,9 +1,9 @@
 // 渲染主流程：摄像机 → 地面 → 阴影 → 按深度排序的墙体与物体 → 特效 → 光照 → 世界 UI → HUD
 import { YS, WORLD, TEAM_COLORS, SPAWN, FOUNTAIN_R, TILE, GRID_W, GRID_H, WALL_H } from '../config.js';
 import { clamp, lerp } from '../math.js';
-import { solid } from '../map.js';
+import { solid, bushAt } from '../map.js';
 import { buildGround, buildWallSprites, GROUND_PAD } from './ground.js';
-import { drawProp, drawHero, drawMinion, drawTower, drawProjectile, drawZone, drawMonster, drawChest, drawLoot, drawDynWall, hpBar, shadow, hexA, INK } from './draw.js';
+import { drawProp, drawHero, drawMinion, drawTower, drawProjectile, drawZone, drawMonster, drawChest, drawLoot, drawDynWall, drawBushClump, drawBarrel, drawSpike, drawPet, hpBar, shadow, hexA, INK } from './draw.js';
 import { drawHUD, buildMinimap } from './hud.js';
 import { RARITY } from '../items.js';
 import { FONT } from '../config.js';
@@ -100,15 +100,19 @@ export class Renderer {
         ctx.restore();
       }
     }
+    for (const s of game.spikes) if (inView(s)) drawSpike(ctx, s, t);
     for (const z of game.zones) if (inView(z)) drawZone(ctx, z, t, pl.team);
+    const hid = game.hidden[pl.team];
+    const seen = (h) => h.alive && inView(h) && !hid.has(h.id);
     game.fx.drawGround(ctx);
 
-    for (const h of game.heroes) if (h.alive && inView(h) && h.stealthT <= 0) shadow(ctx, h.x, h.y, (h.mounted ? 24 : 17) - Math.min(8, h.z * 0.1), 0.4);
+    for (const h of game.heroes) if (seen(h) && h.stealthT <= 0) shadow(ctx, h.x, h.y, (h.mounted ? 24 : 17) - Math.min(8, h.z * 0.1), 0.4);
     for (const m of game.minions) if (inView(m)) shadow(ctx, m.x, m.y, 14);
     for (const m of game.monsters) if (inView(m)) shadow(ctx, m.x, m.y, m.radius * 1.1, 0.45);
+    for (const p of game.pets) if (inView(p)) shadow(ctx, p.x, p.y, 24, 0.4);
 
     for (const u of [...game.heroes, ...game.minions, ...game.monsters]) {
-      if (!u.alive || !inView(u)) continue;
+      if (!u.alive || !inView(u) || hid.has(u.id)) continue;
       if (u.status.root > 0) {
         ctx.save();
         ctx.fillStyle = 'rgba(160,230,255,0.75)';
@@ -126,10 +130,10 @@ export class Renderer {
         ctx.restore();
       }
     }
-    for (const h of game.heroes) if (h.alive && h.state === 'charging' && (h.team === pl.team || h.stealthT <= 0)) this.drawChargePreview(ctx, h);
+    for (const h of game.heroes) if (seen(h) && h.state === 'charging' && (h.team === pl.team || h.stealthT <= 0)) this.drawChargePreview(ctx, h);
     // 本队英雄脚下的队伍色圈
     for (const h of game.heroes) {
-      if (!h.alive || !inView(h)) continue;
+      if (!seen(h)) continue;
       ctx.save();
       ctx.strokeStyle = h === pl ? '#7dffb0' : hexA(TEAM_COLORS[h.team], 0.8);
       ctx.lineWidth = h === pl ? 2.5 : 1.8;
@@ -149,15 +153,19 @@ export class Renderer {
     for (const c of game.chests) if (inView(c)) list.push({ y: c.y, k: 6, o: c });
     for (const l of game.loot) if (inView(l)) list.push({ y: l.y, k: 7, o: l });
     for (const w of game.dynWalls) if (inView(w)) list.push({ y: w.y, k: 8, o: w });
-    for (const h of game.heroes) if (h.alive && inView(h)) list.push({ y: h.y, k: 3, o: h });
+    for (const b of game.barrels) if (inView(b)) list.push({ y: b.y, k: 10, o: b });
+    for (const p of game.pets) if (inView(p)) list.push({ y: p.y, k: 11, o: p });
+    for (const h of game.heroes) if (seen(h)) list.push({ y: h.y, k: 3, o: h });
     for (const p of game.projectiles) if (inView(p)) list.push({ y: p.y, k: 4, o: p });
     list.sort((a, b) => a.y - b.y);
-    for (const h of game.heroes) for (const gh of h.ghosts) if (inView(gh)) drawHero(ctx, h, t, gh);
+    for (const h of game.heroes) if (!hid.has(h.id)) for (const gh of h.ghosts) if (inView(gh)) drawHero(ctx, h, t, gh);
+    const myBush = pl.alive ? bushAt(pl.x, pl.y) : -1;
     for (const it of list) {
       switch (it.k) {
         case 9: this.drawWall(ctx, it.i, it.j, pl); break;
         case 0: {
           const p = it.o, oc = OCCLUDE[p.type];
+          if (p.type === 'bush') { drawBushClump(ctx, p, t, p.bush === myBush && myBush >= 0 ? 0.45 : 1); break; }
           if (oc && pl.alive && pl.y < p.y && p.y - pl.y < oc.h && Math.abs(pl.x - p.x) < oc.w) { ctx.save(); ctx.globalAlpha = 0.4; drawProp(ctx, p, t); ctx.restore(); }
           else drawProp(ctx, p, t);
           break;
@@ -170,6 +178,8 @@ export class Renderer {
         case 6: drawChest(ctx, it.o, t); break;
         case 7: drawLoot(ctx, it.o, t, RARITY[it.o.item.r].color); break;
         case 8: drawDynWall(ctx, it.o, t); break;
+        case 10: drawBarrel(ctx, it.o, t); break;
+        case 11: drawPet(ctx, it.o, t); break;
       }
     }
 
@@ -299,7 +309,8 @@ export class Renderer {
       else if (p.type === 'shroom') hole(p.x, p.y, 10, 60, 0.4);
     }
     for (const tw of game.towers) if (tw.alive) hole(tw.x, tw.y, tw.height, 280, 0.8);
-    for (const h of game.heroes) if (h.alive) hole(h.x, h.y, 30, h === pl ? 280 : h.team === pl.team ? 220 : 150, h.team === pl.team ? 0.8 : 0.5);
+    for (const p of game.pets) hole(p.x, p.y, 30, 160, 0.6);
+    for (const h of game.heroes) if (h.alive && !game.hidden[pl.team].has(h.id)) hole(h.x, h.y, 30, h === pl ? 280 : h.team === pl.team ? 220 : 150, h.team === pl.team ? 0.8 : 0.5);
     for (const m of game.minions) hole(m.x, m.y, 10, 70, 0.35);
     for (const m of game.monsters) if (m.boss) hole(m.x, m.y, 40, 260, 0.6);
     for (const l of game.loot) hole(l.x, l.y, 20, 60 + l.item.r * 30, 0.6);
@@ -308,7 +319,7 @@ export class Renderer {
     for (const z of game.zones) if (z.kind !== 'trap' && z.kind !== 'none' && z.kind !== 'tether') hole(z.x, z.y, 10, z.radius * 1.5, 0.7);
     for (const l of game.fx.lights) hole(l.x, l.y, l.z, l.r, l.life / l.max);
     for (const team of [0, 1]) hole(SPAWN[team].x, SPAWN[team].y, 0, 280, 0.7);
-    hole(2400, 740, 0, 300, 0.5);
+    hole(2880, 900, 0, 320, 0.5);
 
     const ctx = this.ctx;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
@@ -319,11 +330,13 @@ export class Renderer {
     const zoom = this.zoom;
     const pl = game.player;
     for (const h of game.heroes) {
-      if (!h.alive || !inView(h)) continue;
+      if (!h.alive || !inView(h) || game.hidden[pl.team].has(h.id)) continue;
       if (h.stealthT > 0 && h.team !== pl.team) continue;
       const tc = h === pl ? '#5fd17a' : h.team === pl.team ? '#4fb0ff' : '#ff4d5e';
       const top = h.def.head === 'hat' ? 92 : 76;
-      const y = h.y * YS - h.z - top * h.def.size - (h.mounted ? 36 : 0);
+      const y = h.y * YS - h.z - top * h.def.size * (h.buffs.avatar > 0 ? 1.35 : 1) - (h.mounted ? 36 : 0);
+      // 自己在草丛里时提示已隐蔽
+      if (h.team === pl.team && bushAt(h.x, h.y) >= 0 && h.revealT <= 0) { ctx.fillStyle = '#9be26a'; ctx.font = `800 ${11 / Math.max(1, zoom * 0.7)}px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText('隐蔽中', h.x, y - 18); }
       const ghost = this.trackGhost(h);
       hpBar(ctx, h.x, y, 64, h.hp / h.maxHp, tc, zoom, { label: h === pl ? '你' : h.name, ghost });
       if (h.shield > 0) {
@@ -363,6 +376,7 @@ export class Renderer {
     for (const m of game.minions) {
       if (m.hp < m.maxHp && inView(m)) hpBar(ctx, m.x, m.y * YS - 56, 32, m.hp / m.maxHp, TEAM_COLORS[m.team], zoom);
     }
+    for (const p of game.pets) if (inView(p)) hpBar(ctx, p.x, p.y * YS - 70, 40, p.hp / p.maxHp, TEAM_COLORS[p.team], zoom);
     for (const m of game.monsters) {
       if (!inView(m) || (m.hp >= m.maxHp && !m.boss)) continue;
       const big = m.boss ? 1.6 : 1;

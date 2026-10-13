@@ -3,6 +3,7 @@ import { FONT, TEAM_COLORS, WORLD, GRID_W, GRID_H, TILE } from '../config.js';
 import { solid } from '../map.js';
 import { hexA, itemIcon } from './draw.js';
 import { RARITY, sumStats, STAT_LABEL } from '../items.js';
+import { portrait } from './portrait.js';
 
 export function buildMinimap() {
   const s = 5;
@@ -138,13 +139,11 @@ function panelBg(ctx, x, y, w, h, r = 10) {
   ctx.stroke();
 }
 
-function portrait(ctx, h, x, y, r) {
-  ctx.fillStyle = h.def.color;
-  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = h.def.hood;
-  ctx.beginPath(); ctx.arc(x, y - r * 0.12, r * 0.55, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#f0c9a0';
-  ctx.beginPath(); ctx.arc(x + r * 0.12, y - r * 0.08, r * 0.26, 0, Math.PI * 2); ctx.fill();
+function drawPortrait(ctx, h, x, y, r) {
+  ctx.save();
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.clip();
+  ctx.drawImage(portrait(h.def, 96), x - r, y - r, r * 2, r * 2);
+  ctx.restore();
   ctx.strokeStyle = TEAM_COLORS[h.team];
   ctx.lineWidth = 2;
   ctx.beginPath(); ctx.arc(x, y, r + 1, 0, Math.PI * 2); ctx.stroke();
@@ -171,7 +170,7 @@ function playerPanel(ctx, h, x, y, s) {
   const w = 320 * s, hgt = 84 * s;
   ctx.save();
   panelBg(ctx, x, y, w, hgt, 12);
-  portrait(ctx, h, x + 38 * s, y + 38 * s, 26 * s);
+  drawPortrait(ctx, h, x + 38 * s, y + 38 * s, 28 * s);
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
   ctx.font = `800 ${15 * s}px ${FONT}`;
@@ -197,7 +196,7 @@ function playerPanel(ctx, h, x, y, s) {
   const parts = Object.entries(a).filter(([, v]) => v > 0).map(([k, v]) => STAT_LABEL[k](Math.round(v * 100) / 100));
   ctx.fillStyle = '#d0c6f0';
   ctx.font = `600 ${10 * s}px ${FONT}`;
-  ctx.fillText(parts.length ? parts.slice(0, 4).join('  ') : '暂无装备：打野怪、开宝箱、击杀敌人会掉落装备', bx, y + 76 * s);
+  ctx.fillText(parts.length ? parts.slice(0, 4).join('  ') : `被动「${h.def.passiveName}」${h.def.passiveDesc}`.slice(0, 34), bx, y + 76 * s);
   ctx.restore();
 }
 
@@ -207,7 +206,7 @@ function miniRow(ctx, game, h, x, y, s, right) {
   ctx.save();
   panelBg(ctx, x0, y, w, hgt, 8);
   const px = right ? x0 + w - 16 * s : x0 + 16 * s;
-  portrait(ctx, h, px, y + hgt / 2, 10 * s);
+  drawPortrait(ctx, h, px, y + hgt / 2, 12 * s);
   ctx.font = `700 ${11 * s}px ${FONT}`;
   ctx.textBaseline = 'alphabetic';
   ctx.textAlign = right ? 'right' : 'left';
@@ -231,6 +230,7 @@ function skillBar(ctx, h, cx, bottom, s, t) {
     { key: '空格', name: d.dash.name, cd: Math.max(0, h.dashCd), max: d.dash.cd, icon: 'dash' },
     { key: 'U', name: d.skills[0].name, cd: Math.max(0, h.skillCd[0]), max: d.skills[0].cd, icon: 's1' },
     { key: 'I', name: d.skills[1].name, cd: Math.max(0, h.skillCd[1]), max: d.skills[1].cd, icon: 's2' },
+    { key: 'O', name: d.skills[2].name, cd: Math.max(0, h.skillCd[2]), max: d.skills[2].cd, icon: 'ult', ult: true },
     { key: 'R', name: h.mounted ? '下坐骑' : h.mount.name, cd: Math.max(0, h.mountCd), max: 2.5, icon: 'mount', active: h.mounted || h.state === 'mounting', small: true },
     { key: 'B', name: '回城', cd: 0, max: 1, icon: 'recall', active: h.state === 'recall', small: true },
   ];
@@ -266,9 +266,10 @@ function skillBar(ctx, h, cx, bottom, s, t) {
     ctx.save();
     const ready = sl.cd <= 0;
     ctx.fillStyle = sl.active ? hexA(d.color2, 0.35) : 'rgba(30,22,52,0.95)';
-    ctx.strokeStyle = ready ? hexA(d.color2, 0.9) : 'rgba(120,110,160,0.4)';
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = sl.ult ? (ready ? '#ffd24a' : 'rgba(255,210,74,0.4)') : ready ? hexA(d.color2, 0.9) : 'rgba(120,110,160,0.4)';
+    ctx.lineWidth = sl.ult ? 3 : 2;
     ctx.beginPath(); ctx.roundRect(x, sy, sz, sz, 10); ctx.fill(); ctx.stroke();
+    if (sl.ult && ready) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = `rgba(255,210,74,${0.3 + Math.sin(t * 4) * 0.2})`; ctx.lineWidth = 6; ctx.stroke(); ctx.restore(); }
     skillIcon(ctx, sl.icon, x + sz / 2, sy + sz / 2 - 3 * s, sz * 0.32, d, sl.name, s);
     if (!ready) {
       const k = sl.cd / sl.max;
@@ -328,6 +329,7 @@ function skillIcon(ctx, kind, x, y, r, d, name, s) {
     ctx.beginPath(); ctx.arc(x, y, r * 0.8, -Math.PI * 0.8, Math.PI * 0.6); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(x - r * 0.9, y - r * 0.2); ctx.lineTo(x - r * 0.6, y - r * 0.9); ctx.lineTo(x - r * 0.1, y - r * 0.5); ctx.stroke();
   } else {
+    if (kind === 'ult') ctx.fillStyle = '#ffd24a';
     ctx.font = `900 ${r * 1.6}px ${FONT}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -369,7 +371,7 @@ function minimap(ctx, game, R, right, bottom, s) {
     ctx.fillRect(mx(l.x) - 2, my(l.y) - 2, 4, 4);
   }
   for (const hh of game.heroes) {
-    if (!hh.alive || (hh.stealthT > 0 && hh.team !== game.player.team)) continue;
+    if (!hh.alive || ((hh.stealthT > 0 || game.hidden[game.player.team].has(hh.id)) && hh.team !== game.player.team)) continue;
     ctx.fillStyle = TEAM_COLORS[hh.team];
     ctx.strokeStyle = hh === game.player ? '#fff' : '#000';
     ctx.lineWidth = hh === game.player ? 2.5 : 1.5;
@@ -384,7 +386,7 @@ function minimap(ctx, game, R, right, bottom, s) {
 }
 
 function controlsHint(ctx, x, bottom, s) {
-  const lines = ['WASD 移动 · J 普攻 · 按住 K 蓄力', '空格 穿梭 · U I 技能', 'R 坐骑 · B 回城 · 走过装备自动拾取', 'Esc 暂停 · M 静音'];
+  const lines = ['WASD 移动 · J 普攻 · 按住 K 蓄力', '空格 穿梭 · U I 技能 · O 大招', 'R 坐骑 · B 回城 · 走过装备自动拾取', '草丛隐身 · 尖刺 / 浅水 / 炸药桶'];
   ctx.save();
   ctx.font = `600 ${11 * s}px ${FONT}`;
   const lh = 16 * s;

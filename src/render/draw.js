@@ -139,7 +139,7 @@ export function drawHero(ctx, h, t, ghost = null) {
   const mounted = !ghost && h.mounted;
   const moving = !ghost && h.speedNow > 20;
   const walk = h.walkT * 2;
-  const S = d.size;
+  const S = d.size * (!ghost && h.buffs?.avatar > 0 ? 1.35 : 1);
   let base = src.y * YS - src.z;
   const white = !ghost && h.flash > 0;
   const W = '#ffffff';
@@ -161,6 +161,9 @@ export function drawHero(ctx, h, t, ghost = null) {
     ctx.globalAlpha = 0.55;
   }
 
+  if (!ghost && h.buffs?.avatar > 0) {
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; glow(ctx, x, base - 40 * S, 60 * S, d.color2, 0.35 + Math.sin(t * 6) * 0.08); ctx.restore();
+  }
   if (mounted) {
     drawMount(ctx, h.mount, x, base, side, t, moving ? walk : 0, white);
     base -= MOUNT_SEAT[h.mount.id] * Math.min(1.15, S);
@@ -1074,6 +1077,68 @@ export function drawZone(ctx, z, t, viewerTeam) {
       ctx.beginPath(); ctx.moveTo(x, gy - 64); ctx.lineTo(x + 7, gy - 54); ctx.lineTo(x, gy - 44); ctx.lineTo(x - 7, gy - 54); ctx.closePath(); ink(ctx, col, 2);
       break;
     }
+    case 'ultField': {
+      ctx.translate(x, gy); ctx.scale(1, YS);
+      ctx.fillStyle = hexA(col, 0.12);
+      ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill();
+      ctx.strokeStyle = INK; ctx.lineWidth = 8;
+      ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.stroke();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = hexA(col, 0.9); ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.stroke();
+      for (let i = 0; i < 6; i++) {
+        const a = t * 2 + (i * TAU) / 6;
+        ctx.strokeStyle = hexA(col, 0.5); ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(0, 0, r * 0.7, a, a + 0.6); ctx.stroke();
+        ctx.fillStyle = hexA(col, 0.6);
+        ctx.beginPath(); ctx.arc(Math.cos(-a) * r * 0.88, Math.sin(-a) * r * 0.88, 6, 0, TAU); ctx.fill();
+      }
+      break;
+    }
+    case 'blackhole': {
+      ctx.translate(x, gy); ctx.scale(1, YS);
+      const g = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
+      g.addColorStop(0, 'rgba(0,0,0,0.95)'); g.addColorStop(0.35, 'rgba(10,4,24,0.8)'); g.addColorStop(1, 'rgba(10,4,24,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill();
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 8; i++) {
+        const a0 = -t * (4 + i * 0.5) + i * 0.8;
+        ctx.strokeStyle = hexA(col, 0.25 + (i % 3) * 0.15); ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(0, 0, r * (0.25 + i * 0.09), a0, a0 + 2.2); ctx.stroke();
+      }
+      ctx.strokeStyle = hexA(col, 0.95); ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(0, 0, r * 0.18, 0, TAU); ctx.stroke();
+      break;
+    }
+    case 'barrage': {
+      ctx.translate(x, gy); ctx.scale(1, YS);
+      ctx.strokeStyle = hexA(col, 0.7); ctx.lineWidth = 3;
+      ctx.setLineDash([18, 12]); ctx.lineDashOffset = -t * 60;
+      ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = hexA(col, 0.08);
+      ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill();
+      break;
+    }
+    case 'clock': {
+      ctx.translate(x, gy); ctx.scale(1, YS);
+      ctx.fillStyle = hexA(col, 0.18);
+      ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill();
+      ctx.strokeStyle = INK; ctx.lineWidth = 8;
+      ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.stroke();
+      ctx.strokeStyle = hexA(col, 0.95); ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.stroke();
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * TAU;
+        ctx.beginPath(); ctx.moveTo(Math.cos(a) * r * 0.82, Math.sin(a) * r * 0.82); ctx.lineTo(Math.cos(a) * r * 0.95, Math.sin(a) * r * 0.95); ctx.stroke();
+      }
+      ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(-1.2) * r * 0.5, Math.sin(-1.2) * r * 0.5); ctx.stroke();
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(z.age * 0.3 - 1.57) * r * 0.75, Math.sin(z.age * 0.3 - 1.57) * r * 0.75); ctx.stroke();
+      break;
+    }
     case 'lob': {
       ctx.globalAlpha = 1;
       ctx.fillStyle = 'rgba(8,3,16,0.35)';
@@ -1357,4 +1422,97 @@ export function drawDynWall(ctx, w, t) {
   ctx.beginPath(); ctx.moveTo(x - w.r * 0.7, gy - h * 0.7); ctx.lineTo(x - w.r * 0.1, gy - h); ctx.lineTo(x - w.r * 0.2, gy); ctx.lineTo(x - w.r * 0.8, gy); ctx.closePath();
   ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.fill();
   ctx.save(); ctx.globalCompositeOperation = 'lighter'; glow(ctx, x, gy - h * 0.5, w.r * 2, w.color, 0.2); ctx.restore();
+}
+
+// ───────────── 草丛叶簇 ─────────────
+export function drawBushClump(ctx, p, t, alpha = 1) {
+  const x = p.x, gy = p.y * YS;
+  const sway = Math.sin(t * 1.6 + p.seed * 20) * 0.08;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate(x, gy);
+  ctx.scale(p.s, p.s);
+  const n = 7;
+  for (let i = 0; i < n; i++) {
+    const a = -Math.PI / 2 + (i - (n - 1) / 2) * 0.28 + sway;
+    const len = 30 + ((p.seed * 53 * (i + 1)) % 1) * 16;
+    ctx.save();
+    ctx.translate((i - (n - 1) / 2) * 3, 2);
+    ctx.rotate(a + Math.PI / 2);
+    ctx.beginPath();
+    ctx.moveTo(-4, 0);
+    ctx.quadraticCurveTo(-6, -len * 0.55, 0, -len);
+    ctx.quadraticCurveTo(6, -len * 0.55, 4, 0);
+    ctx.closePath();
+    ink(ctx, i % 2 ? '#4f8a3e' : '#3a6e30', 1.6);
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+export function drawBarrel(ctx, b, t) {
+  const x = b.x + (b.wobble > 0 ? Math.sin(t * 70) * 2 : 0), gy = b.y * YS;
+  const white = b.flash > 0;
+  shadow(ctx, b.x, b.y, 18, 0.45);
+  ctx.beginPath();
+  ctx.moveTo(x - 14, gy - 2); ctx.quadraticCurveTo(x - 18, gy - 18, x - 14, gy - 34);
+  ctx.lineTo(x + 14, gy - 34); ctx.quadraticCurveTo(x + 18, gy - 18, x + 14, gy - 2); ctx.closePath();
+  ink(ctx, white ? '#fff' : '#8a3a24', 2.2);
+  ctx.beginPath(); ctx.ellipse(x, gy - 34, 14, 5, 0, 0, TAU); ink(ctx, white ? '#fff' : '#a84a2c', 2);
+  if (!white) {
+    ctx.strokeStyle = '#3a2a2a'; ctx.lineWidth = 3;
+    for (const yy of [-10, -26]) { ctx.beginPath(); ctx.moveTo(x - 16, gy + yy); ctx.lineTo(x + 16, gy + yy); ctx.stroke(); }
+    ctx.fillStyle = '#ffd24a';
+    ctx.beginPath(); ctx.moveTo(x - 5, gy - 22); ctx.lineTo(x + 1, gy - 22); ctx.lineTo(x - 2, gy - 16); ctx.lineTo(x + 5, gy - 16); ctx.lineTo(x - 3, gy - 8); ctx.lineTo(x, gy - 14); ctx.lineTo(x - 6, gy - 14); ctx.closePath(); ctx.fill();
+    // 引信火花
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; glow(ctx, x + 4, gy - 42, 8 + Math.sin(t * 20) * 2, '#ffb347', 0.8); ctx.restore();
+    inkLine(ctx, x + 1, gy - 36, x + 4, gy - 42, '#d8c8a8', 1.5, 1);
+  }
+}
+
+export function drawSpike(ctx, s, t) {
+  const T = 80, x0 = s.i * T, y0 = s.j * T * YS, th = T * YS;
+  ctx.save();
+  ctx.fillStyle = '#3a3448';
+  ctx.fillRect(x0 + 4, y0 + 3, T - 8, th - 6);
+  ctx.strokeStyle = INK; ctx.lineWidth = 2;
+  ctx.strokeRect(x0 + 4, y0 + 3, T - 8, th - 6);
+  const warn = s.state === 'warn', up = s.state === 'up';
+  if (warn || up) {
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = up ? 'rgba(255,80,60,0.25)' : `rgba(255,120,60,${0.12 + Math.abs(Math.sin(t * 20)) * 0.12})`;
+    ctx.fillRect(x0 + 4, y0 + 3, T - 8, th - 6);
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  const hgt = up ? 22 : warn ? 6 : 0;
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < 4; c++) {
+      const px = x0 + 14 + c * 17 + (r % 2) * 8, py = y0 + 10 + r * 13;
+      ctx.fillStyle = '#16111f';
+      ctx.beginPath(); ctx.ellipse(px, py, 4, 2, 0, 0, TAU); ctx.fill();
+      if (hgt > 0) {
+        ctx.beginPath(); ctx.moveTo(px - 4, py); ctx.lineTo(px, py - hgt); ctx.lineTo(px + 4, py); ctx.closePath();
+        ink(ctx, '#c8c8d8', 1.4);
+        ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.moveTo(px - 1.5, py - 1); ctx.lineTo(px, py - hgt + 2); ctx.lineTo(px, py - 1); ctx.closePath(); ctx.fill();
+      }
+    }
+  }
+  ctx.restore();
+}
+
+export function drawPet(ctx, p, t) {
+  const x = p.x, base = p.y * YS;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  glow(ctx, x, base - 30, 50, p.color, 0.35);
+  ctx.restore();
+  drawMount(ctx, { id: 'wolf', color: p.flash > 0 ? '#ffffff' : p.color, color2: p.color2 }, x, base, p.face, t, p.walkT * 2, p.flash > 0);
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 2; i++) {
+    const a = t * 3 + i * Math.PI;
+    ctx.fillStyle = p.color2;
+    ctx.beginPath(); ctx.arc(x + Math.cos(a) * 30, base - 30 + Math.sin(a) * 10, 2.5, 0, TAU); ctx.fill();
+  }
+  ctx.restore();
 }

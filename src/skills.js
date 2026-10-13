@@ -7,21 +7,10 @@ import { WORLD } from './config.js';
 import { los, nearestFloor } from './nav.js';
 import { wallAt } from './map.js';
 import { sfx } from './audio.js';
+import { EL } from './elements.js';
+import { Pet } from './entities/pet.js';
 
-export const EL = {
-  fire: { c: '#ff7a2f', c2: '#ffd27a', w: '火焰', on: { burn: { dps: 22, t: 2.5 } }, snd: 'fire' },
-  ice: { c: '#8fe3ff', c2: '#e6fbff', w: '冰霜', on: { slow: { amt: 0.35, t: 1.5 } }, snd: 'ice' },
-  lightning: { c: '#a98bff', c2: '#e6dbff', w: '雷电', on: { slow: { amt: 0.2, t: 0.8 } }, snd: 'zap' },
-  poison: { c: '#9be24a', c2: '#e2ffb0', w: '剧毒', on: { burn: { dps: 20, t: 3, color: '#9be24a' } }, snd: 'fire' },
-  holy: { c: '#ffe58a', c2: '#fffbe0', w: '圣光', on: {}, snd: 'ready' },
-  shadow: { c: '#b061ff', c2: '#e2c4ff', w: '暗影', on: {}, snd: 'blink' },
-  nature: { c: '#7ddc6a', c2: '#d8ffc8', w: '自然', on: { slow: { amt: 0.2, t: 1 } }, snd: 'arrow' },
-  blood: { c: '#ff4a6a', c2: '#ffc2cf', w: '鲜血', on: {}, snd: 'heavy' },
-  earth: { c: '#d9a35a', c2: '#ffe2b0', w: '大地', on: {}, snd: 'heavy' },
-  wind: { c: '#9ff5dc', c2: '#effff9', w: '疾风', on: {}, snd: 'dash' },
-  water: { c: '#4ab8ff', c2: '#d6f0ff', w: '潮汐', on: { slow: { amt: 0.25, t: 1.2 } }, snd: 'ice' },
-  arcane: { c: '#d48cff', c2: '#f6e2ff', w: '奥术', on: {}, snd: 'bolt' },
-};
+export { EL };
 const play = (el) => sfx[EL[el].snd]?.();
 
 // 前方落点（不会落进墙里）
@@ -40,7 +29,7 @@ function pickTarget(h, g, range, cone = 0.9, heroFirst = true) {
   const fa = h.faceAngle;
   let best = null, bestS = Infinity;
   for (const u of enemiesOf(g, h.team)) {
-    if (u.isInvulnerable?.() || u.kind === 'chest') continue;
+    if (u.isInvulnerable?.() || u.kind === 'chest' || u.kind === 'barrel' || g.hidden[h.team].has(u.id)) continue;
     const dx = u.x - h.x, dy = u.y - h.y, d = Math.hypot(dx, dy);
     if (d > range + u.radius) continue;
     const ad = Math.abs(angleDiff(fa, Math.atan2(dy, dx)));
@@ -85,7 +74,7 @@ export function basicSlash(p = {}) {
         if (!h.alive) return;
         const range = heavy ? o.range * 1.25 : o.range, arc = heavy ? o.arc * 0.75 : o.arc;
         g.fx.slash(h.x, h.y, 28, h.faceAngle, range, arc, col, { width: heavy ? 30 : 22, dur: 0.2, dir: i % 2 ? -1 : 1 });
-        const n = hitArc(g, h, { range, arc, dmg: o.dmg[i], kb: heavy ? o.kb3 : 130, hitstop: heavy ? 0.06 : 0.03, shake: heavy ? 5 : 2, ...(heavy && o.el ? EL[o.el].on : {}) });
+        const n = hitArc(g, h, { range, arc, dmg: o.dmg[i], basic: true, kb: heavy ? o.kb3 : 130, hitstop: heavy ? 0.06 : 0.03, shake: heavy ? 5 : 2, ...(heavy && o.el ? EL[o.el].on : {}) });
         if (n) g.fx.burst(h.x + h.facing.x * 60, h.y + h.facing.y * 60, 30, col, 10, { speed: 260, life: 0.35 });
       });
     },
@@ -106,7 +95,7 @@ export function basicThrust(p = {}) {
         if (!h.alive) return;
         const x1 = h.x + h.facing.x * len, y1 = h.y + h.facing.y * len;
         g.fx.lightning([{ x: h.x, y: h.y, z: 30 }, { x: x1, y: y1, z: 30 }], col, { width: heavy ? 6 : 4, dur: 0.14, jagAmt: 2 });
-        hitLine(g, h, h.x, h.y, x1, y1, o.width, o.dmg[i], { kb: heavy ? 380 : 120, hitstop: heavy ? 0.05 : 0.025, shake: heavy ? 4 : 1.5, ...(heavy && o.el ? EL[o.el].on : {}) });
+        hitLine(g, h, h.x, h.y, x1, y1, o.width, o.dmg[i], { basic: true, kb: heavy ? 380 : 120, hitstop: heavy ? 0.05 : 0.025, shake: heavy ? 4 : 1.5, ...(heavy && o.el ? EL[o.el].on : {}) });
       });
     },
   };
@@ -119,12 +108,12 @@ export function basicShot(p = {}) {
     fn(h, g, i) {
       const col = o.color || h.def.color2;
       const a = h.faceAngle;
-      const base = { color: col, kind: o.kind, speed: o.speed, life: o.life, radius: o.radius, opts: { kb: 80 } };
+      const base = { color: col, kind: o.kind, speed: o.speed, life: o.life, radius: o.radius, opts: { kb: 80, basic: true } };
       o.kind === 'arrow' ? sfx.arrow() : sfx.bolt();
       if (i < o.times.length - 1) { shoot(h, g, { ...base, angle: a, dmg: o.dmg[i] }); return; }
       if (o.third === 'spread') for (const off of [-0.17, 0, 0.17]) shoot(h, g, { ...base, angle: a + off, dmg: o.dmg[2] });
-      else if (o.third === 'pierce') shoot(h, g, { ...base, angle: a, dmg: o.dmg[2], pierce: true, kind: o.kind === 'arrow' ? 'shard' : o.kind, radius: o.radius + 2, opts: { kb: 140, ...(o.el ? EL[o.el].on : {}) } });
-      else shoot(h, g, { ...base, angle: a, dmg: o.dmg[2], radius: o.radius * 1.6, opts: { kb: 220, ...(o.el ? EL[o.el].on : {}) } });
+      else if (o.third === 'pierce') shoot(h, g, { ...base, angle: a, dmg: o.dmg[2], pierce: true, kind: o.kind === 'arrow' ? 'shard' : o.kind, radius: o.radius + 2, opts: { kb: 140, basic: true, ...(o.el ? EL[o.el].on : {}) } });
+      else shoot(h, g, { ...base, angle: a, dmg: o.dmg[2], radius: o.radius * 1.6, opts: { kb: 220, basic: true, ...(o.el ? EL[o.el].on : {}) } });
     },
   };
 }
@@ -812,4 +801,257 @@ export const SKILL = {
 export function makeSkill(type, p) {
   const s = SKILL[type](p);
   return { type, name: p.name, el: p.el, ...s, ...(p.cd ? { cd: p.cd } : {}) };
+}
+
+// ═════════════════════ 大招（O 键） ═════════════════════
+
+function visibleFoes(h, g, range) {
+  return g.heroes.filter((e) => e.alive && e.team !== h.team && e.targetable && !g.hidden[h.team].has(e.id) && Math.hypot(e.x - h.x, e.y - h.y) < range);
+}
+
+export const ULT = {
+  inferno: (p) => ({
+    cd: 60, castTime: 0.4, aiRange: 220, ai: 'fight',
+    desc: `以自身为中心展开 5 秒${EL[p.el].w}领域（半径 260），持续伤害并减速敌人，期间自身减伤 20%。`,
+    fn(h, g) {
+      const c = EL[p.el].c;
+      h.buffs.ultArmor = 5;
+      sfx.boom();
+      g.shake(8);
+      g.fx.ring(h.x, h.y, 20, 280, c, { dur: 0.6, width: 10 });
+      g.addZone(new Zone(g, { owner: h, kind: 'ultField', color: c, follow: h, x: h.x, y: h.y, radius: 260, life: 5, tick: 0.35, onTick: (z) => hitCircle(g, h, z.x, z.y, z.radius, D(p, 42), { slow: { amt: 0.3, t: 0.6 }, silent: true, ...EL[p.el].on }) }));
+    },
+  }),
+  blackhole: (p) => ({
+    cd: 70, castTime: 0.5, aiRange: 460, aimRange: 500, ai: 'group',
+    desc: `在前方制造${EL[p.el].w}黑洞 3 秒，强力吸引敌人，结束时爆炸造成重创并眩晕。`,
+    fn(h, g) {
+      const t = pickTarget(h, g, 500, 0.7);
+      const q = t ? { x: t.x, y: t.y } : ahead(h, 340);
+      const c = EL[p.el].c;
+      sfx.zap();
+      g.addZone(new Zone(g, {
+        owner: h, kind: 'blackhole', color: c, x: q.x, y: q.y, radius: 270, life: 3, tick: 0.4,
+        onUpdate: (z, dt) => {
+          for (const u of enemiesOf(g, h.team)) {
+            if (u.mass >= 99) continue;
+            const dx = z.x - u.x, dy = z.y - u.y, d = Math.hypot(dx, dy);
+            if (d < z.radius + u.radius && d > 14) { u.x += (dx / d) * 230 * dt; u.y += (dy / d) * 230 * dt; }
+          }
+          if (Math.random() < dt * 30) { const a = rand(0, 6.28); g.fx.burst(z.x + Math.cos(a) * z.radius, z.y + Math.sin(a) * z.radius, 10, c, 1, { speed: 10, life: 0.5 }); }
+        },
+        onTick: (z) => hitCircle(g, h, z.x, z.y, z.radius, D(p, 26), { silent: true }),
+        onEnd: (z) => {
+          sfx.boom();
+          g.fx.ring(z.x, z.y, 10, 300, c, { dur: 0.6, width: 10 });
+          g.fx.burst(z.x, z.y, 20, EL[p.el].c2, 50, { speed: 460, life: 0.8 });
+          g.fx.light(z.x, z.y, 420, 0.6);
+          hitCircle(g, h, z.x, z.y, 200, D(p, 230), { stun: 0.7, kb: 420, hitstop: 0.1, shake: 14 });
+        },
+      }));
+    },
+  }),
+  barrage: (p) => ({
+    cd: 60, castTime: 0.3, aiRange: 520, aimRange: 560, ai: 'group',
+    desc: `向前方大片区域倾泻 4 秒${EL[p.el].w}弹幕，每枚落点都会爆炸。`,
+    fn(h, g) {
+      const t = pickTarget(h, g, 560, 0.7);
+      const q = t ? { x: t.x, y: t.y } : ahead(h, 380);
+      const c = EL[p.el].c;
+      g.addZone(new Zone(g, {
+        owner: h, kind: 'barrage', color: c, x: q.x, y: q.y, radius: 280, life: 4, tick: 0.16,
+        onTick: (z) => {
+          const a = rand(0, 6.28), rr = Math.sqrt(Math.random()) * z.radius;
+          const x = z.x + Math.cos(a) * rr, y = z.y + Math.sin(a) * rr;
+          g.fx.lightning([{ x: x - 60, y: y - 30, z: 420 }, { x, y, z: 0 }], c, { width: 5, dur: 0.18, jagAmt: 4 });
+          g.fx.ring(x, y, 5, 70, c, { dur: 0.3, width: 4 });
+          g.fx.burst(x, y, 4, EL[p.el].c2, 8, { speed: 200, life: 0.4, up: 160, grav: 500 });
+          g.fx.light(x, y, 120, 0.2);
+          play(p.el);
+          hitCircle(g, h, x, y, 72, D(p, 70), { silent: true, kb: 120, shake: 2, ...EL[p.el].on });
+        },
+      }));
+    },
+  }),
+  avatar: (p) => ({
+    cd: 70, castTime: 0.4, aiRange: 260, ai: 'fight',
+    desc: `化身${EL[p.el].w}巨人 8 秒：体型变大，伤害 +40%，攻速 +30%，减伤 +25%。`,
+    fn(h, g) {
+      h.buffs.avatar = 8;
+      sfx.boom();
+      g.shake(8);
+      g.fx.ring(h.x, h.y, 10, 200, EL[p.el].c, { dur: 0.6, width: 10 });
+      g.fx.burst(h.x, h.y, 30, EL[p.el].c, 40, { type: 'ember', speed: 200, up: 220, life: 0.9, size: 5 });
+    },
+  }),
+  sanctuary: (p) => ({
+    cd: 75, castTime: 0.4, aiRange: 450, ai: 'save',
+    desc: `展开${EL[p.el].w}圣域：为 450 范围内的队友恢复 35% 生命，并在 2 秒内免疫伤害。`,
+    fn(h, g) {
+      const c = EL[p.el].c;
+      sfx.win();
+      g.fx.ring(h.x, h.y, 10, 450, c, { dur: 0.8, width: 8 });
+      g.fx.ring(h.x, h.y, 10, 450, c, { dur: 0.7, fill: true });
+      for (const u of g.heroes) {
+        if (!u.alive || u.team !== h.team || Math.hypot(u.x - h.x, u.y - h.y) > 450) continue;
+        const amt = u.maxHp * 0.35;
+        u.hp = Math.min(u.maxHp, u.hp + amt);
+        u.invuln = Math.max(u.invuln, 2);
+        g.fx.text(u.x, u.y, 90, `+${Math.round(amt)}`, '#7dffb0', 18);
+        g.fx.burst(u.x, u.y, 10, c, 24, { type: 'ember', speed: 60, up: 180, life: 1.1, size: 4 });
+      }
+    },
+  }),
+  execute: (p) => ({
+    cd: 55, castTime: 0.2, aiRange: 520, aimRange: 560, ai: 'kill',
+    desc: `瞬移到前方生命比例最低的敌方英雄身边${EL[p.el].w}斩杀：伤害 + 目标已损失生命的 40%。击杀时冷却返还一半。`,
+    fn(h, g) {
+      const c = EL[p.el].c;
+      const t = visibleFoes(h, g, 600).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
+      if (!t) { h.skillCd[2] = 3; return; }
+      const d = norm(t.x - h.x, t.y - h.y);
+      teleport(h, g, t.x - d.x * (t.radius + 30), t.y - d.y * (t.radius + 30), c);
+      h.facing = d;
+      g.fx.slash(t.x, t.y, 40, h.faceAngle + 0.8, 120, 2.6, c, { width: 40, dur: 0.3 });
+      g.fx.slash(t.x, t.y, 40, h.faceAngle - 0.8, 120, 2.6, EL[p.el].c2, { width: 30, dur: 0.3, dir: -1 });
+      sfx.heavy();
+      const before = t.alive;
+      dealDamage(g, h, t, D(p, 150) + (t.maxHp - t.hp) * 0.4, { hitstop: 0.14, shake: 12 });
+      if (before && !t.alive) h.skillCd[2] *= 0.5;
+    },
+  }),
+  timeStop: (p) => ({
+    cd: 70, castTime: 0.4, aiRange: 420, aimRange: 460, ai: 'group',
+    desc: `冻结前方区域的${EL[p.el].w}时间：范围内的敌人眩晕 2 秒。`,
+    fn(h, g) {
+      const t = pickTarget(h, g, 460, 0.7);
+      const q = t ? { x: t.x, y: t.y } : ahead(h, 300);
+      const c = EL[p.el].c;
+      sfx.blink();
+      g.addZone(new Zone(g, { owner: h, kind: 'clock', color: c, x: q.x, y: q.y, radius: 220, life: 2 }));
+      hitCircle(g, h, q.x, q.y, 220, D(p, 70), { stun: 2, hitstop: 0.1, shake: 6 });
+    },
+  }),
+  fissure: (p) => ({
+    cd: 55, castTime: 0.5, aiRange: 620, ai: 'group',
+    desc: `向前撕开 900 长的${EL[p.el].w}裂谷：沿线敌人受到重创并眩晕，裂谷两侧升起岩墙 3 秒。`,
+    fn(h, g) {
+      const c = EL[p.el].c;
+      const fx = h.facing.x, fy = h.facing.y, px = -fy, py = fx;
+      const x0 = h.x, y0 = h.y;
+      const hitSet = new Set();
+      sfx.boom();
+      for (let k = 1; k <= 12; k++) {
+        g.after(k * 0.035, () => {
+          const x = x0 + fx * k * 75, y = y0 + fy * k * 75;
+          if (wallAt(x, y)) return;
+          g.fx.burst(x, y, 4, EL[p.el].c2, 10, { speed: 220, life: 0.6, up: 260, grav: 600, type: 'shard', size: 5 });
+          g.fx.ring(x, y, 5, 70, c, { dur: 0.35, width: 6 });
+          g.shake(4);
+          hitCircle(g, h, x, y, 70, D(p, 150), { stun: 0.9, kb: 200, silent: true }, hitSet);
+          for (const s of [-1, 1]) {
+            const wx = x + px * 95 * s, wy = y + py * 95 * s;
+            if (k % 2 === 0 && !wallAt(wx, wy)) g.dynWalls.push({ x: wx, y: wy, r: 26, h: 100, life: 3, max: 3, color: c, seed: Math.random() });
+          }
+        });
+      }
+    },
+  }),
+  beast: (p) => ({
+    cd: 70, castTime: 0.5, aiRange: 500, ai: 'fight',
+    desc: `召唤${EL[p.el].w}巨兽并肩作战 14 秒，它会自动攻击附近的敌人。`,
+    fn(h, g) {
+      const pet = new Pet(g, h, { hp: D(p, 900), dmg: D(p, 55), life: 14, color: EL[p.el].c, color2: EL[p.el].c2 });
+      g.pets.push(pet);
+      sfx.heavy();
+      g.fx.ring(pet.x, pet.y, 10, 120, EL[p.el].c, { dur: 0.5, width: 7 });
+      g.fx.burst(pet.x, pet.y, 20, EL[p.el].c2, 30, { speed: 260, life: 0.6 });
+    },
+  }),
+  ricochet: (p) => ({
+    cd: 50, castTime: 0.3, aiRange: 520, aimRange: 560, ai: 'fight',
+    desc: `发射${EL[p.el].w}弹射球，在敌人之间最多弹射 8 次，优先弹向英雄。`,
+    fn(h, g) {
+      const c = EL[p.el].c;
+      const first = pickTarget(h, g, 560, 0.8);
+      if (!first) { h.skillCd[2] = 3; return; }
+      const hitIds = new Set();
+      const fire = (from, t, k) => {
+        hitIds.add(t.id);
+        g.projectiles.push(new Projectile(g, {
+          owner: h, x: from.x, y: from.y, z: 40, homing: t, speed: 1100, life: 1.2, dmg: D(p, 95) * Math.pow(0.92, k), radius: 12, kind: 'bolt', color: c,
+          opts: { kb: 120, ...EL[p.el].on },
+          onHit: (pr, u) => {
+            play(p.el);
+            g.fx.burst(u.x, u.y, 40, EL[p.el].c2, 12, { speed: 240, life: 0.3 });
+            if (k >= 7) return;
+            let next = null, bs = Infinity;
+            for (const o of enemiesOf(g, h.team)) {
+              if (hitIds.has(o.id) || o.isInvulnerable?.() || o.kind === 'chest' || o.kind === 'barrel') continue;
+              const d = Math.hypot(o.x - u.x, o.y - u.y);
+              if (d > 380) continue;
+              const s = d * (o.kind === 'hero' ? 0.4 : 1);
+              if (s < bs) { bs = s; next = o; }
+            }
+            if (next) g.after(0.03, () => fire({ x: u.x, y: u.y }, next, k + 1));
+          },
+        }));
+      };
+      sfx.zap();
+      fire({ x: h.x, y: h.y }, first, 0);
+    },
+  }),
+  dragonDash: (p) => ({
+    cd: 55, castTime: 0.1, aiRange: 450, ai: 'fight',
+    desc: `化身${EL[p.el].w}之龙连续突进 3 次（可用方向键转向），每次都伤害沿途敌人并留下灼痕。`,
+    fn(h, g) {
+      const c = EL[p.el].c;
+      for (let k = 0; k < 3; k++) {
+        g.after(k * 0.42, () => {
+          if (!h.alive) return;
+          const hitSet = new Set();
+          h.impulse(1300, 0.24);
+          h.invuln = Math.max(h.invuln, 0.3);
+          h.state = 'cast'; h.stateT = 0.26;
+          sfx.dash();
+          for (let s = 0; s <= 4; s++) {
+            g.after(s * 0.06, () => {
+              if (!h.alive) return;
+              hitCircle(g, h, h.x, h.y, 75, D(p, 85), { kb: 260, hitstop: 0.03, shake: 4, ...EL[p.el].on }, hitSet);
+              g.fx.burst(h.x, h.y, 30, c, 10, { speed: 160, life: 0.5, type: 'ember', up: 100 });
+              g.addZone(new Zone(g, { owner: h, kind: 'fire', color: c, x: h.x, y: h.y, radius: 40, life: 2, tick: 0.45, onTick: (z) => hitCircle(g, h, z.x, z.y, z.radius, D(p, 12), { dot: true, silent: true }) }));
+            });
+          }
+        });
+      }
+    },
+  }),
+  starfall: (p) => ({
+    cd: 75, castTime: 0.6, aiRange: 900, ai: 'fight',
+    desc: `标记 1000 范围内所有可见的敌方英雄，1 秒后对每人降下${EL[p.el].w}天罚。`,
+    fn(h, g) {
+      const c = EL[p.el].c;
+      const foes = visibleFoes(h, g, 1000);
+      if (!foes.length) { h.skillCd[2] = 3; return; }
+      sfx.zap();
+      for (const e of foes) {
+        g.addZone(new Zone(g, {
+          owner: h, kind: 'warn', color: c, x: e.x, y: e.y, radius: 110, life: 1, follow: null,
+          onUpdate: (z) => { if (z.age < 0.6 && e.alive) { z.x = e.x; z.y = e.y; } },
+          onEnd: (z) => {
+            g.fx.lightning([{ x: z.x + 30, y: z.y, z: 520 }, { x: z.x, y: z.y, z: 0 }], c, { width: 9, dur: 0.35, jagAmt: 24 });
+            g.fx.ring(z.x, z.y, 10, 130, c, { dur: 0.45, width: 8 });
+            g.fx.light(z.x, z.y, 260, 0.4);
+            sfx.boom();
+            hitCircle(g, h, z.x, z.y, 110, D(p, 200), { stun: 0.5, hitstop: 0.08, shake: 8, ...EL[p.el].on });
+          },
+        }));
+      }
+    },
+  }),
+};
+
+export function makeUlt(type, p) {
+  const s = ULT[type](p);
+  return { type, name: p.name, el: p.el, ult: true, ...s };
 }

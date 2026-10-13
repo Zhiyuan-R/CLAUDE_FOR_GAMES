@@ -1,7 +1,7 @@
 // 预渲染地牢地面：石板兵道、野区泥地与苔藓、基地法阵、Boss 巢穴、墙脚阴影、烘焙烛光
 import { WORLD, YS, TILE, GRID_W, GRID_H, SPAWN, TEAM_COLORS, mirror } from '../config.js';
 import { seeded } from '../math.js';
-import { solid, buildProps } from '../map.js';
+import { solid, buildProps, MAP, BUSH, WATER } from '../map.js';
 
 export const GROUND_PAD = { x: 40, y: 40 };
 const RES = 1;
@@ -9,12 +9,15 @@ const INK = '#140c20';
 
 // 判断瓦片属于哪类区域
 function region(i, j) {
-  const inBase = (a, b) => a >= 1 && a <= 8 && b >= 10 && b <= 21;
+  const t = MAP.terrain[j * GRID_W + i];
+  if (t === WATER) return 'water';
+  if (t === BUSH) return 'bush';
+  const inBase = (a, b) => a >= 1 && a <= 10 && b >= 13 && b <= 26;
   const [mi, mj] = [GRID_W - 1 - i, GRID_H - 1 - j];
   if (inBase(i, j) || inBase(mi, mj)) return 'base';
-  const lane = (a, b) => (b >= 3 && b <= 5) || (b >= 26 && b <= 28) || (b >= 14 && b <= 17 && a >= 8 && a <= 51) || (a >= 6 && a <= 8 && (b <= 9 || b >= 22));
+  const lane = (a, b) => (b >= 2 && b <= 6) || (b >= 33 && b <= 37) || (b >= 17 && b <= 22 && a >= 10 && a <= 61) || (a >= 7 && a <= 11 && (b <= 12 || b >= 27));
   if (lane(i, j) || lane(mi, mj)) return 'lane';
-  if (i >= 27 && i <= 32 && ((j >= 7 && j <= 11) || (j >= 20 && j <= 24))) return j < 16 ? 'dragon' : 'colossus';
+  if (i >= 33 && i <= 38 && ((j >= 8 && j <= 14) || (j >= 25 && j <= 31))) return j < 20 ? 'dragon' : 'colossus';
   return 'jungle';
 }
 
@@ -48,7 +51,7 @@ export function buildGround() {
     for (let i = 0; i < GRID_W; i++) {
       if (solid(i, j)) continue;
       const r = region(i, j);
-      ctx.fillStyle = r === 'jungle' ? '#29243a' : r === 'dragon' ? '#2e1e26' : r === 'colossus' ? '#2a2630' : '#17121f';
+      ctx.fillStyle = r === 'jungle' ? '#29243a' : r === 'dragon' ? '#2e1e26' : r === 'colossus' ? '#2a2630' : r === 'bush' ? '#1f2a1e' : r === 'water' ? '#16303a' : '#17121f';
       ctx.fillRect(i * T, P(j * T), T, P(T));
     }
   }
@@ -90,6 +93,7 @@ export function buildGround() {
       const ti = Math.floor(cx / T), tj = Math.floor(cy / T);
       if (solid(ti, tj)) continue;
       const r = region(ti, tj);
+      if (r === 'water' || r === 'bush') continue;
       const keep = r === 'lane' || r === 'base' ? 0.97 : r === 'jungle' ? 0.16 : 0.55;
       if (rnd() > keep) continue;
       stone(ctx, [pt[j][i], pt[j][i + 1], pt[j + 1][i + 1], pt[j + 1][i]], P, rnd, r);
@@ -97,13 +101,14 @@ export function buildGround() {
   }
 
   // Boss 巢穴：熔岩裂缝 / 远古符文
-  lavaCracks(ctx, 2400, 740, rnd, P);
-  runeCircle(ctx, 2400, 1820, 150, '#d9a35a', rnd);
+  lavaCracks(ctx, 2880, 900, rnd, P);
+  runeCircle(ctx, 2880, 2300, 150, '#d9a35a', rnd);
+  terrainLayer(ctx, P, rnd);
   runeCircle(ctx, WORLD.w / 2, WORLD.h / 2, 150, '#8a74ff', rnd);
 
   // 基地法阵与泉水
   for (const team of [0, 1]) {
-    const core = team === 0 ? { x: 300, y: 1280 } : mirror(300, 1280);
+    const core = team === 0 ? { x: 360, y: 1600 } : mirror(360, 1600);
     plaza(ctx, core.x, core.y, 250, TEAM_COLORS[team], rnd);
     const sp = SPAWN[team];
     const g2 = ctx.createRadialGradient(sp.x, P(sp.y), 10, sp.x, P(sp.y), 150);
@@ -119,6 +124,7 @@ export function buildGround() {
     const i = Math.floor(x / T), j = Math.floor(y / T);
     if (solid(i, j)) continue;
     const r = region(i, j);
+    if (r === 'water') continue;
     if (rnd() < (r === 'lane' ? 0.25 : 0.6)) tuft(ctx, x, P(y), R(0.45, 1.1), rnd() < 0.6 ? ['#3f6e35', '#5f9a48'] : ['#3d2c66', '#5f48a3'], rnd);
     else pebble(ctx, x, P(y), R(2.5, 6.5), rnd);
   }
@@ -149,6 +155,50 @@ export function buildGround() {
   ctx.restore();
 
   return { canvas: c, res: RES };
+}
+
+// 浅水池与草丛地面
+function terrainLayer(ctx, P, rnd) {
+  const T = TILE;
+  for (let j = 0; j < GRID_H; j++) {
+    for (let i = 0; i < GRID_W; i++) {
+      const t = MAP.terrain[j * GRID_W + i];
+      const x0 = i * T, y0 = P(j * T);
+      if (t === WATER) {
+        const g = ctx.createLinearGradient(0, y0, 0, y0 + P(T));
+        g.addColorStop(0, '#1d4a5a');
+        g.addColorStop(1, '#14303e');
+        ctx.fillStyle = g;
+        ctx.fillRect(x0, y0, T, P(T));
+        ctx.strokeStyle = 'rgba(150,230,255,0.35)';
+        ctx.lineWidth = 1.5;
+        for (let k = 0; k < 3; k++) {
+          const cx = x0 + rnd() * T, cy = y0 + rnd() * P(T), rr = 6 + rnd() * 14;
+          ctx.beginPath(); ctx.ellipse(cx, cy, rr, rr * 0.4, 0, 0, Math.PI * 2); ctx.stroke();
+        }
+        // 水岸描边
+        ctx.strokeStyle = INK;
+        ctx.lineWidth = 3;
+        const isW = (a, b) => MAP.terrain[b * GRID_W + a] === WATER;
+        ctx.beginPath();
+        if (!isW(i, j - 1)) { ctx.moveTo(x0, y0); ctx.lineTo(x0 + T, y0); }
+        if (!isW(i, j + 1)) { ctx.moveTo(x0, y0 + P(T)); ctx.lineTo(x0 + T, y0 + P(T)); }
+        if (!isW(i - 1, j)) { ctx.moveTo(x0, y0); ctx.lineTo(x0, y0 + P(T)); }
+        if (!isW(i + 1, j)) { ctx.moveTo(x0 + T, y0); ctx.lineTo(x0 + T, y0 + P(T)); }
+        ctx.stroke();
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.fillStyle = 'rgba(80,200,230,0.12)';
+        ctx.fillRect(x0, y0, T, P(T));
+        ctx.restore();
+      } else if (t === BUSH) {
+        for (let k = 0; k < 8; k++) {
+          ctx.fillStyle = rnd() < 0.5 ? 'rgba(60,110,50,0.6)' : 'rgba(40,80,40,0.6)';
+          ctx.beginPath(); ctx.ellipse(x0 + rnd() * T, y0 + rnd() * P(T), 10 + rnd() * 14, 5 + rnd() * 6, 0, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+    }
+  }
 }
 
 function poly(ctx, q, P) {

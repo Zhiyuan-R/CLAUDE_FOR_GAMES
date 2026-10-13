@@ -9,6 +9,7 @@ import { MOUNT_TIME } from '../mounts.js';
 import { los, nearestFloor } from '../nav.js';
 import { wallAt } from '../map.js';
 import { sfx } from '../audio.js';
+import { passiveUpdate, passiveAttrs } from '../passives.js';
 
 const BUFFER_TIME = 0.22;
 
@@ -27,7 +28,11 @@ export class Hero extends Unit {
     this.chargeT = 0;
     this.chargeCd = 0;
     this.dashCd = 0;
-    this.skillCd = [0, 0];
+    this.skillCd = [0, 0, 0];
+    this.pv = {};
+    this.revealT = 0;
+    this.dashStock = def.passive === 'twinDash' ? 2 : 1;
+    this.dashRecharge = 0;
     this.buffs = {};
     this.forced = null;
     this.hop = null;
@@ -63,6 +68,9 @@ export class Hero extends Unit {
     if (tb.dragon > 0) a.power += 0.15;
     if (tb.colossus > 0) { a.armor += 0.15; a.regen += 10; }
     if (this.buffs.berserk > 0) { a.haste += 0.45; a.lifesteal += 0.2; }
+    if (this.buffs.avatar > 0) { a.power += 0.4; a.haste += 0.3; a.armor += 0.25; }
+    if (this.buffs.ultArmor > 0) a.armor += 0.2;
+    passiveAttrs(this, a, this.game);
     a.power = 1 + a.power;
     a.armor = Math.min(0.5, a.armor);
     a.cdr = Math.min(0.4, a.cdr);
@@ -87,6 +95,7 @@ export class Hero extends Unit {
     if (inp.dash) this.buffer = { a: 'dash', t: BUFFER_TIME };
     else if (inp.s1) this.buffer = { a: 's1', t: BUFFER_TIME };
     else if (inp.s2) this.buffer = { a: 's2', t: BUFFER_TIME };
+    else if (inp.ult) this.buffer = { a: 'ult', t: BUFFER_TIME };
     else if (inp.attack) this.buffer = { a: 'attack', t: BUFFER_TIME };
   }
 
@@ -105,6 +114,15 @@ export class Hero extends Unit {
     this.mountCd -= dt;
     this.skillCd[0] -= dt;
     this.skillCd[1] -= dt;
+    this.skillCd[2] -= dt;
+    if (this.revealT > 0) this.revealT -= dt;
+    // 穿梭充能（双影被动有两层）
+    const maxStock = this.def.passive === 'twinDash' ? 2 : 1;
+    if (this.dashStock < maxStock) {
+      if ((this.dashRecharge -= dt) <= 0) { this.dashStock++; this.dashRecharge = this.def.dash.cd * (1 - this.attrs.cdr * 0.5); }
+    }
+    this.dashCd = this.dashStock > 0 ? 0 : this.dashRecharge;
+    passiveUpdate(this, g, dt);
     for (const k in this.buffs) this.buffs[k] -= dt;
     if (this.shieldT > 0 && (this.shieldT -= dt) <= 0) this.shield = 0;
     if (this.stealthT > 0) this.stealthT -= dt;
@@ -248,8 +266,8 @@ export class Hero extends Unit {
       if (this === this.game.player) sfx.charge();
       return;
     }
-    if (b === 's1' || b === 's2') {
-      const i = b === 's1' ? 0 : 1;
+    if (b === 's1' || b === 's2' || b === 'ult') {
+      const i = b === 's1' ? 0 : b === 's2' ? 1 : 2;
       this.buffer = null;
       if (this.skillCd[i] <= 0) this.castSkill(i);
       else if (this === this.game.player) this.game.fx.text(this.x, this.y, 90, '冷却中', '#a9a3c9', 13);
@@ -267,7 +285,7 @@ export class Hero extends Unit {
     let best = null, bestScore = Infinity;
     const fa = this.faceAngle;
     for (const u of enemiesOf(this.game, this.team)) {
-      if (u.isInvulnerable?.()) continue;
+      if (u.isInvulnerable?.() || this.game.hidden[this.team].has(u.id)) continue;
       const dx = u.x - this.x, dy = u.y - this.y;
       const dd = Math.hypot(dx, dy);
       if (dd > range + u.radius) continue;
@@ -276,7 +294,7 @@ export class Hero extends Unit {
       if (!los(this.x, this.y, u.x, u.y)) continue;
       let score = dd * (1 + ad * 1.5);
       if (u.kind === 'hero') score *= 0.6;
-      if (u.kind === 'chest') score *= 1.5;
+      if (u.kind === 'chest' || u.kind === 'barrel') score *= 1.6;
       if (score < bestScore) { bestScore = score; best = u; }
     }
     if (best) this.facing = norm(best.x - this.x, best.y - this.y);
@@ -285,6 +303,7 @@ export class Hero extends Unit {
   doBasic() {
     const d = this.def;
     this.breakStealth();
+    this.revealT = 1.2;
     this.autoAim(d.assistRange);
     const times = d.basic.times;
     const i = this.combo % times.length;
@@ -300,6 +319,7 @@ export class Hero extends Unit {
     const d = this.def;
     const ratio = clamp(this.chargeT / d.charged.maxTime, 0, 1);
     this.breakStealth();
+    this.revealT = 1.2;
     this.autoAim(d.assistRange * 1.2);
     this.state = 'attack';
     this.stateT = d.charged.recover;
@@ -315,8 +335,10 @@ export class Hero extends Unit {
     this.autoAim(s.aimRange || this.def.assistRange);
     this.state = 'cast';
     this.stateT = s.castTime;
-    this.skillCd[i] = s.cd * (1 - this.attrs.cdr);
+    this.skillCd[i] = s.cd * (1 - this.attrs.cdr * (s.ult ? 0.5 : 1));
     this._casting = i;
+    this.revealT = 1.2;
+    if (this.def.passive === 'echo') this.pv.echoT = 3;
     this.swing = { t: 0, dur: s.castTime, i: 10 + i };
     s.fn(this, this.game);
   }
@@ -324,7 +346,9 @@ export class Hero extends Unit {
   doDash(dir) {
     const dd = this.def.dash;
     const g = this.game;
-    this.dashCd = dd.cd * (1 - this.attrs.cdr * 0.5);
+    if (this.dashStock === (this.def.passive === 'twinDash' ? 2 : 1)) this.dashRecharge = dd.cd * (1 - this.attrs.cdr * 0.5);
+    this.dashStock--;
+    this.dashCd = this.dashStock > 0 ? 0 : this.dashRecharge;
     if (dd.type === 'blink') {
       g.fx.burst(this.x, this.y, 30, this.def.color2, 18, { speed: 160, life: 0.4 });
       g.fx.ring(this.x, this.y, 30, 5, this.def.color2, { dur: 0.25 });
@@ -386,6 +410,7 @@ export class Hero extends Unit {
     this.invuln = 1.5;
     this.state = 'idle';
     this.dashCd = 0;
+    this.dashStock = this.def.passive === 'twinDash' ? 2 : 1;
     this.facing = { x: this.team === 0 ? 1 : -1, y: 0 };
     this.game.fx.ring(this.x, this.y, 10, 90, this.def.color2, { dur: 0.6 });
   }

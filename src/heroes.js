@@ -1,5 +1,6 @@
 // 30 位英雄：由技能库中的普攻 / 蓄力 / 穿梭 / 技能组合而成，每位英雄的技能组合都不相同
-import { basicSlash, basicThrust, basicShot, chargedSpin, chargedBeam, chargedFan, chargedLeap, chargedOrb, chargedQuake, chargedThrust, makeSkill, EL } from './skills.js';
+import { basicSlash, basicThrust, basicShot, chargedSpin, chargedBeam, chargedFan, chargedLeap, chargedOrb, chargedQuake, chargedThrust, makeSkill, makeUlt, EL } from './skills.js';
+import { PASSIVES } from './passives.js';
 
 const ROLE = {
   tank: { label: '坦克', hp: 1550, speed: 240, size: 1.42 },
@@ -33,6 +34,21 @@ function shade(hex, k) {
   return '#' + [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => f(v).toString(16).padStart(2, '0')).join('');
 }
 
+
+// 每位英雄的被动与大招：[被动, 大招类型, 大招名]
+const EXTRA = {
+  ember: ['pyre', 'inferno', '炼狱领域'], storm: ['echo', 'starfall', '雷霆审判'], frost: ['frostbite', 'barrage', '冰晶暴雨'],
+  magma: ['thorns', 'fissure', '熔岩裂谷'], shade: ['executioner', 'execute', '影杀'], cleric: ['secondWind', 'sanctuary', '圣域'],
+  plague: ['pyre', 'blackhole', '瘟疫之井'], berserker: ['fury', 'avatar', '血怒化身'], wind: ['twinDash', 'ricochet', '风暴弹射'],
+  tide: ['echo', 'blackhole', '深渊之眼'], arbalest: ['crit', 'barrage', '火力覆盖'], paladin: ['banner', 'sanctuary', '神圣庇护所'],
+  count: ['vampire', 'beast', '血蝠之王'], druid: ['secondWind', 'beast', '远古树灵'], troll: ['lastStand', 'fissure', '冰川崩裂'],
+  astral: ['echo', 'timeStop', '星辰禁锢'], butcher: ['vampire', 'execute', '屠宰'], gale: ['twinDash', 'dragonDash', '风龙三连斩'],
+  thunder: ['momentum', 'dragonDash', '雷龙突袭'], soul: ['hunter', 'blackhole', '灵魂深渊'], pyro: ['crit', 'barrage', '流星火雨'],
+  lancer: ['momentum', 'fissure', '流沙裂地'], dk: ['lastStand', 'timeStop', '死亡凝滞'], shaman: ['frostbite', 'inferno', '永冬领域'],
+  tinker: ['reset', 'ricochet', '弹射机关球'], moon: ['hunter', 'starfall', '月神降临'], monk: ['reset', 'avatar', '金刚不坏'],
+  gorgon: ['executioner', 'timeStop', '石化凝视'], brew: ['thorns', 'inferno', '烈酒火海'], chrono: ['banner', 'sanctuary', '时光倒流'],
+};
+
 function H(o) {
   const role = ROLE[o.role];
   const el = EL[o.el];
@@ -57,7 +73,8 @@ function H(o) {
     assistRange: ranged ? 540 : 170,
     dash: DASH[o.dash[0]](o.dash[1]),
     basic, charged,
-    skills: [makeSkill(o.s1[0], { name: o.s1[1], el: o.el }), makeSkill(o.s2[0], { name: o.s2[1], el: o.el })],
+    skills: [makeSkill(o.s1[0], { name: o.s1[1], el: o.el }), makeSkill(o.s2[0], { name: o.s2[1], el: o.el }), makeUlt(EXTRA[o.id][1], { name: EXTRA[o.id][2], el: o.el })],
+    passive: EXTRA[o.id][0], passiveName: PASSIVES[EXTRA[o.id][0]].name, passiveDesc: PASSIVES[EXTRA[o.id][0]].desc,
   };
   return def;
 }

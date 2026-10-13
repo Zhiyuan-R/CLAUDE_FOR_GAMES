@@ -29,7 +29,7 @@ export class Unit {
     this.shield = 0;
   }
 
-  get slowMul() { return this.status.slow > 0 ? 1 - this.status.slowAmt : 1; }
+  get slowMul() { return (this.status.slow > 0 ? 1 - this.status.slowAmt : 1) * (this.inWater ? 0.7 : 1); }
 
   updateStatus(dt) {
     const s = this.status;

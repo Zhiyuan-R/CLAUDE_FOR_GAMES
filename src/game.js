@@ -4,11 +4,12 @@ import { FX } from './fx.js';
 import { Hero } from './entities/hero.js';
 import { Tower } from './entities/tower.js';
 import { Minion } from './entities/minion.js';
-import { Monster, Chest, MONSTERS } from './entities/monster.js';
+import { Monster, Chest, Barrel, MONSTERS } from './entities/monster.js';
 import { HEROES, HERO_LIST } from './heroes.js';
 import { AIController } from './ai.js';
 import { PlayerController } from './input.js';
-import { MAP, LANES, buildProps } from './map.js';
+import { MAP, LANES, buildProps, terrainAt, bushAt, WATER } from './map.js';
+import { dealDamage } from './combat.js';
 import { resolveWalls } from './nav.js';
 import { rollItem, RARITY } from './items.js';
 import { MOUNTS, MOUNT_LIST } from './mounts.js';
@@ -50,6 +51,11 @@ export class Game {
     this.towers = [];
     this.monsters = [];
     this.chests = [];
+    this.pets = [];
+    this.barrels = [];
+    this.hidden = [new Set(), new Set()];
+    // 环境伤害来源（尖刺、炸药桶），对所有阵营生效
+    this.env = { team: 3, kind: 'env', name: '地形', alive: true, x: 0, y: 0 };
     this.projectiles = [];
     this.zones = [];
     this.dynWalls = [];
@@ -106,6 +112,8 @@ export class Game {
 
     this.camps = MAP.camps.map((c) => ({ ...c, units: [], respawnT: c.side === -1 ? 90 : 1 }));
     this.chestSpots = MAP.chests.map((s) => ({ ...s, unit: null, respawnT: 20 + Math.random() * 20 }));
+    this.barrelSpots = MAP.barrels.map((s) => ({ ...s, unit: null, respawnT: 0 }));
+    this.spikes = MAP.spikes.map((s) => ({ ...s, state: 'down' }));
 
     this.rebuildUnits();
     if (!demo) {
@@ -116,7 +124,7 @@ export class Game {
   roleName(h) { return ROLE_NAMES[h.role]; }
 
   rebuildUnits() {
-    this.units = [...this.heroes, ...this.minions, ...this.towers, ...this.monsters, ...this.chests];
+    this.units = [...this.heroes, ...this.minions, ...this.towers, ...this.monsters, ...this.chests, ...this.pets, ...this.barrels];
   }
 
   near(x, y, r) {
@@ -160,6 +168,8 @@ export class Game {
     for (const m of this.minions) m.update(dt);
     for (const m of this.monsters) m.update(dt);
     for (const c of this.chests) c.update(dt);
+    for (const p of this.pets) p.update(dt);
+    for (const b of this.barrels) b.update(dt);
     for (const t of this.towers) t.update(dt);
     for (const p of this.projectiles) if (p.alive) p.update(dt);
     for (const z of this.zones) if (z.alive) z.update(dt);
@@ -170,8 +180,12 @@ export class Game {
     this.minions = this.minions.filter((m) => m.alive);
     this.monsters = this.monsters.filter((m) => m.alive);
     this.chests = this.chests.filter((c) => c.alive);
+    this.pets = this.pets.filter((p) => p.alive);
+    this.barrels = this.barrels.filter((b) => b.alive);
 
     this.resolveCollisions();
+    this.updateTerrain(dt);
+    this.updateVisibility();
     this.fountains(dt);
     this.updateLoot(dt);
     this.ambient(dt);
@@ -211,6 +225,10 @@ export class Game {
       c.respawnT = m.boss ? 150 : 70;
       if (m.boss && this.time > 5 && !this.opts.demo) this.log(`${m.name} 已在巢穴苏醒`, '#ffb36b');
     }
+    for (const s of this.barrelSpots) {
+      if (s.unit && s.unit.alive) continue;
+      if ((s.respawnT -= dt) <= 0) { s.unit = new Barrel(this, s); this.barrels.push(s.unit); s.respawnT = 40; }
+    }
     for (const s of this.chestSpots) {
       if (s.unit && s.unit.alive) continue;
       if ((s.respawnT -= dt) <= 0) {
@@ -222,8 +240,8 @@ export class Game {
   }
 
   resolveCollisions() {
-    const movers = [...this.heroes.filter((h) => h.alive), ...this.minions, ...this.monsters.filter((m) => !m.boss)];
-    const statics = [...this.towers.filter((t) => t.alive), ...this.chests, ...this.monsters.filter((m) => m.boss)];
+    const movers = [...this.heroes.filter((h) => h.alive), ...this.minions, ...this.pets, ...this.monsters.filter((m) => !m.boss)];
+    const statics = [...this.towers.filter((t) => t.alive), ...this.chests, ...this.barrels, ...this.monsters.filter((m) => m.boss)];
     for (const m of movers) {
       for (const t of statics) pushOut(m, t.x, t.y, t.radius);
       for (const w of this.dynWalls) pushOut(m, w.x, w.y, w.r);
@@ -247,6 +265,49 @@ export class Game {
         a.y -= dy * push * wa * 0.5;
         b.x += dx * push * wb * 0.5;
         b.y += dy * push * wb * 0.5;
+      }
+    }
+  }
+
+  // 地形：浅水减速、尖刺周期性升起
+  updateTerrain(dt) {
+    const movers = [...this.heroes.filter((h) => h.alive), ...this.minions, ...this.pets, ...this.monsters];
+    for (const u of movers) {
+      u.inWater = u.z < 5 && terrainAt(u.x, u.y) === WATER;
+      if (u.inWater && Math.hypot(u.vx, u.vy) > 60 && Math.random() < dt * 6) this.fx.ring(u.x, u.y, 4, 30, '#9fe8ff', { dur: 0.5, width: 2 });
+      if (u._spikeT > 0) u._spikeT -= dt;
+    }
+    for (const s of this.spikes) {
+      const c = (this.time + s.phase) % 3;
+      const prev = s.state;
+      s.state = c < 1.7 ? 'down' : c < 2.2 ? 'warn' : 'up';
+      if (s.state !== 'up') continue;
+      if (prev !== 'up') this.fx.burst(s.x, s.y, 4, '#d8d0e8', 6, { speed: 120, life: 0.3, up: 120, grav: 400, type: 'shard', size: 2.5 });
+      for (const u of movers) {
+        if (u.z > 10 || u._spikeT > 0 || u.invuln > 0) continue;
+        if (Math.floor(u.x / 80) !== s.i || Math.floor(u.y / 80) !== s.j) continue;
+        u._spikeT = 0.6;
+        dealDamage(this, this.env, u, u.kind === 'hero' ? 70 : 45, { slow: { amt: 0.4, t: 0.8 }, raw: true });
+      }
+    }
+  }
+
+  // 草丛视野：站在草丛里的英雄，只有靠得很近、或同在一片草丛里的敌人才看得到；刚出过手会暴露
+  updateVisibility() {
+    for (const team of [BLUE, RED]) {
+      const set = this.hidden[team];
+      set.clear();
+      for (const h of this.heroes) {
+        if (!h.alive || h.team === team || h.revealT > 0) continue;
+        const b = bushAt(h.x, h.y);
+        if (b < 0) continue;
+        let seen = false;
+        for (const u of this.units) {
+          if (!u.alive || u.team !== team || (u.kind !== 'hero' && u.kind !== 'minion' && u.kind !== 'tower' && u.kind !== 'pet')) continue;
+          const d = Math.hypot(u.x - h.x, u.y - h.y);
+          if (d < 150 || (u.kind === 'hero' && bushAt(u.x, u.y) === b)) { seen = true; break; }
+        }
+        if (!seen) set.add(h.id);
       }
     }
   }
@@ -324,6 +385,10 @@ export class Game {
     }
     for (const z of this.zones) {
       if (z.kind === 'fire' && Math.random() < dt * 10) this.fx.burst(z.x + (Math.random() - 0.5) * z.radius, z.y + (Math.random() - 0.5) * z.radius, 4, z.color || '#ff8a2a', 1, { type: 'ember', speed: 20, up: 90, life: 0.6, size: 3 });
+      if ((z.kind === 'ultField' || z.kind === 'blackhole') && Math.random() < dt * 40) {
+        const a = Math.random() * Math.PI * 2, rr = Math.random() * z.radius;
+        this.fx.burst(z.x + Math.cos(a) * rr, z.y + Math.sin(a) * rr, 4, z.color, 1, { type: 'ember', speed: 30, up: 140, life: 0.8, size: 4 });
+      }
       if (z.kind === 'aura' && Math.random() < dt * 30) {
         const a = Math.random() * Math.PI * 2;
         this.fx.burst(z.x + Math.cos(a) * z.radius * 0.9, z.y + Math.sin(a) * z.radius * 0.9, 10, z.color, 1, { type: 'ember', speed: 60, up: 120, life: 0.5, size: 3.5 });
@@ -336,7 +401,28 @@ export class Game {
     const hero = killer?.kind === 'hero' ? killer : null;
     if (u.kind === 'minion') {
       fx.burst(u.x, u.y, 15, '#6b5a8f', 10, { type: 'smoke', speed: 60, life: 0.7, size: 7, up: 30 });
-      if (hero) { hero.stats.cs++; if (Math.random() < 0.05) this.dropItem(u.x, u.y, 0); }
+      if (hero) {
+        hero.stats.cs++;
+        if (Math.random() < 0.04) this.dropItem(u.x, u.y, 0);
+        if (hero.def.passive === 'reset') { hero.skillCd[0] -= 1; hero.skillCd[1] -= 1; }
+      }
+      return;
+    }
+    if (u.kind === 'barrel') {
+      sfx.boom();
+      fx.burst(u.x, u.y, 20, '#ffb347', 40, { speed: 420, life: 0.6, up: 200, grav: 400 });
+      fx.burst(u.x, u.y, 20, '#5a4a5a', 18, { type: 'smoke', speed: 140, life: 1.1, size: 16, up: 40 });
+      fx.ring(u.x, u.y, 10, 170, '#ff7a2f', { dur: 0.45, width: 9 });
+      fx.light(u.x, u.y, 320, 0.5);
+      this.shake(10);
+      this.env.x = u.x; this.env.y = u.y;
+      for (const t of this.units) {
+        if (!t.alive || t === u || t.kind === 'tower' || t.kind === 'core') continue;
+        if (Math.hypot(t.x - u.x, t.y - u.y) > 160 + t.radius) continue;
+        // 引爆者自己的队伍也会受伤，但伤害减半
+        const friendly = killer && t.team === killer.team;
+        dealDamage(this, this.env, t, friendly ? 60 : 140, { kb: 420, from: { x: u.x, y: u.y }, burn: { dps: 20, t: 2 }, raw: true });
+      }
       return;
     }
     if (u.kind === 'chest') {
@@ -361,7 +447,7 @@ export class Game {
           const ours = team === this.player.team;
           this.banner(`${TEAM_NAMES[team]}击败了${m.name}`, ours ? '#ffd24a' : '#ff6b6b', `${buffText}，持续 150 秒`);
         }
-      } else if (Math.random() < (m.tier >= 1 ? 1 : 0.5)) {
+      } else if (Math.random() < (m.tier >= 1 ? 0.8 : 0.35)) {
         this.dropItem(u.x, u.y, m.tier);
       }
       return;
@@ -375,11 +461,15 @@ export class Game {
       this.score[team]++;
       if (hero) hero.stats.kills++;
       for (const [, rec] of u.recentAttackers) {
-        if (rec.hero !== hero && rec.hero.team !== u.team && this.time - rec.t < 10) rec.hero.stats.assists++;
+        if (rec.hero !== hero && rec.hero.team !== u.team && this.time - rec.t < 10) {
+          rec.hero.stats.assists++;
+          if (rec.hero.def.passive === 'reset') { rec.hero.skillCd[0] = 0; rec.hero.skillCd[1] = 0; }
+        }
       }
+      if (hero && hero.def.passive === 'reset') { hero.skillCd[0] = 0; hero.skillCd[1] = 0; this.fx.ring(hero.x, hero.y, 10, 70, hero.def.color2, { dur: 0.4 }); }
       u.recentAttackers.clear();
       this.dropItem(u.x, u.y, 1);
-      const kname = hero ? hero.name : killer?.kind === 'tower' || killer?.kind === 'core' ? '防御塔' : killer?.kind === 'monster' ? killer.name : '小兵';
+      const kname = hero ? hero.name : killer?.kind === 'tower' || killer?.kind === 'core' ? '防御塔' : killer?.kind === 'monster' ? killer.name : killer?.kind === 'env' ? '地形' : '小兵';
       this.log(`${kname} 击杀了 ${u.name}`, team === this.player.team ? '#8fd0ff' : '#ff8a8a');
       if (this.opts.demo) return;
       const fb = !this.firstBlood;

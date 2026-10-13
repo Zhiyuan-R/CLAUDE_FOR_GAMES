@@ -62,7 +62,7 @@ export class AIController {
     this.lane = role === 'support' ? 'bot' : role === 'jungle' ? 'mid' : role;
   }
 
-  enemyHeroes() { return this.g.heroes.filter((x) => x.team !== this.h.team && x.alive && x.targetable); }
+  enemyHeroes() { return this.g.heroes.filter((x) => x.team !== this.h.team && x.alive && x.targetable && !this.g.hidden[this.h.team].has(x.id)); }
   enemyTowers() { return this.g.towers.filter((t) => t.alive && t.team !== this.h.team); }
 
   towerTanked(t) {
@@ -78,7 +78,7 @@ export class AIController {
   }
 
   visible(u, r) {
-    return u.alive && u.targetable && Math.hypot(u.x - this.h.x, u.y - this.h.y) < r && los(this.h.x, this.h.y, u.x, u.y);
+    return u.alive && u.targetable && !this.g.hidden[this.h.team].has(u.id) && Math.hypot(u.x - this.h.x, u.y - this.h.y) < r && los(this.h.x, this.h.y, u.x, u.y);
   }
 
   laneFront() {
@@ -274,10 +274,22 @@ export class AIController {
   useSkills(o, t, d) {
     const h = this.h, g = this.g;
     const hpR = h.hp / h.maxHp;
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < 3; i++) {
       if (h.skillCd[i] > 0) continue;
       const s = h.def.skills[i];
       let want = false;
+      if (s.ult) {
+        // 大招：有英雄目标，且对方残血、或敌人扎堆、或自己需要保命
+        if (t.kind !== 'hero' && s.ai !== 'save') continue;
+        const foes = g.heroes.filter((e) => e.alive && e.team !== h.team && dist(e, t) < 400).length;
+        if (s.ai === 'save') want = g.heroes.some((a) => a.alive && a.team === h.team && a.hp / a.maxHp < 0.35 && dist(a, h) < 420);
+        else if (s.ai === 'kill') want = d < s.aiRange && t.hp / t.maxHp < 0.45;
+        else if (s.ai === 'group') want = d < s.aiRange + t.radius && (foes >= 2 || t.hp / t.maxHp < 0.5);
+        else want = d < s.aiRange + t.radius && (foes >= 2 || t.hp / t.maxHp < 0.6 || hpR < 0.5);
+        if (!want || !chance(this.lastDt * 1.5 * this.d.skill)) continue;
+        o.ult = true;
+        return true;
+      }
       if (s.ai === 'heal') {
         want = hpR < 0.6 || g.heroes.some((a) => a.alive && a.team === h.team && a.hp / a.maxHp < 0.5 && dist(a, h) < 300);
       } else if (s.ai === 'escape') {
@@ -297,7 +309,7 @@ export class AIController {
   read(dt) {
     this.lastDt = dt;
     const o = this.out, h = this.h, g = this.g;
-    o.attack = o.dash = o.s1 = o.s2 = o.mount = o.recall = false;
+    o.attack = o.dash = o.s1 = o.s2 = o.ult = o.mount = o.recall = false;
     o.mx = o.my = 0;
     o.aim = null;
     if (!h.alive) { o.charge = false; this.charging = false; this.path = null; return o; }

@@ -6,10 +6,11 @@ import { HERO_LIST, HEROES } from './heroes.js';
 import { MOUNT_LIST } from './mounts.js';
 import { DIFFICULTY } from './ai.js';
 import { initAudio, toggleMute, sfx } from './audio.js';
+import { portrait } from './render/portrait.js';
 
 const params = new URLSearchParams(location.search);
 const SPEED = Math.min(8, Math.max(0.25, Number(params.get('speed')) || 1));
-const COLS = 6;
+const COLS = 10;
 
 const kb = new Keyboard();
 const renderer = new Renderer(document.getElementById('game'));
@@ -57,7 +58,7 @@ function buildMenu() {
     el.dataset.id = h.id;
     el.style.setProperty('--c', h.color);
     el.style.setProperty('--c2', h.color2);
-    el.innerHTML = `<span class="sigil"></span><span style="min-width:0"><div class="nm">${h.name}</div><div class="rl">${h.role}</div></span>`;
+    el.innerHTML = `<img class="pt" alt="" src="${portrait(h, 128).toDataURL()}"><span class="nm">${h.name}</span><span class="rl">${h.role}</span>`;
     el.addEventListener('click', () => { sel.hero = h.id; sfx.ui(); refreshMenu(); });
     grid.appendChild(el);
   }
@@ -98,7 +99,7 @@ function refreshMenu() {
   det.style.setProperty('--c', h.color);
   det.style.setProperty('--c2', h.color2);
   det.innerHTML = `
-    <div class="hero-head"><span class="sigil"></span><div><div class="hero-name">${h.name}</div><div class="hero-en">${h.en} · ${h.role}</div></div></div>
+    <div class="hero-head"><img class="big-pt" alt="" src="${portrait(h, 256).toDataURL()}"><div><div class="hero-name">${h.name}</div><div class="hero-en">${h.en} · ${h.role}</div><div class="stats"><span>生命 ${h.maxHp}</span><span>移速 ${h.speed}</span><span>${h.ranged ? '远程' : '近战'}</span></div></div></div>
     <p class="hero-blurb">${h.blurb}</p>
     <ul class="kit">
       <li><kbd>J</kbd><b>${h.basic.name}</b><span>${h.basic.times.length} 段连击</span></li>
@@ -106,8 +107,9 @@ function refreshMenu() {
       <li><kbd>空格</kbd><b>${h.dash.name}</b><span>${h.dash.type === 'blink' ? '瞬移' : h.dash.type === 'roll' ? '翻滚' : '冲刺'} · 冷却 ${h.dash.cd}s · 无敌帧</span></li>
       <li><kbd>U</kbd><b>${h.skills[0].name}</b><span>${h.skills[0].desc}</span></li>
       <li><kbd>I</kbd><b>${h.skills[1].name}</b><span>${h.skills[1].desc}</span></li>
-    </ul>
-    <div class="stats"><span>生命 ${h.maxHp}</span><span>移速 ${h.speed}</span><span>${h.ranged ? '远程' : '近战'}</span></div>`;
+      <li class="ult"><kbd>O</kbd><b>${h.skills[2].name}</b><span>${h.skills[2].desc} · 冷却 ${h.skills[2].cd}s</span></li>
+      <li class="passive"><kbd>被动</kbd><b>${h.passiveName}</b><span>${h.passiveDesc}</span></li>
+    </ul>`;
   document.querySelector('.hero-btn.active')?.scrollIntoView({ block: 'nearest' });
 }
 

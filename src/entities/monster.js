@@ -130,3 +130,16 @@ export class Chest extends Unit {
 }
 
 
+
+// 炸药桶：被打爆后对周围所有单位（不分敌我）造成爆炸伤害
+export class Barrel extends Unit {
+  constructor(game, spot) {
+    super(game, { x: spot.x, y: spot.y, team: NEUTRAL, radius: 18, maxHp: 50, kind: 'barrel' });
+    this.spot = spot;
+    this.mass = 999;
+    this.height = 34;
+    this.wobble = 0;
+  }
+  onHurt() { this.wobble = 0.25; }
+  update(dt) { this.updateStatus(dt); if (this.wobble > 0) this.wobble -= dt; }
+}

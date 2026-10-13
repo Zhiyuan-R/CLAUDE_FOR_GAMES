@@ -29,11 +29,12 @@ export const KEYMAP = {
   dash: ['Space', 'KeyL'],
   s1: ['KeyU', 'KeyQ'],
   s2: ['KeyI', 'KeyE'],
+  ult: ['KeyO'],
   mount: ['KeyR'],
   recall: ['KeyB'],
 };
 
-export const blankInput = () => ({ mx: 0, my: 0, attack: false, charge: false, dash: false, s1: false, s2: false, mount: false, recall: false, aim: null });
+export const blankInput = () => ({ mx: 0, my: 0, attack: false, charge: false, dash: false, s1: false, s2: false, ult: false, mount: false, recall: false, aim: null });
 
 export class PlayerController {
   constructor(kb) { this.kb = kb; this.out = blankInput(); }
@@ -46,6 +47,7 @@ export class PlayerController {
     o.dash = k.wasPressed(...KEYMAP.dash);
     o.s1 = k.wasPressed(...KEYMAP.s1);
     o.s2 = k.wasPressed(...KEYMAP.s2);
+    o.ult = k.wasPressed(...KEYMAP.ult);
     o.mount = k.wasPressed(...KEYMAP.mount);
     o.recall = k.wasPressed(...KEYMAP.recall);
     o.aim = null;

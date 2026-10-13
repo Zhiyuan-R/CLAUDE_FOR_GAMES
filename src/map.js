@@ -1,4 +1,4 @@
-// 地牢地图：墙体网格、三条兵线、野区房间、Boss 巢穴、防御塔与营地位置、装饰物件
+// 地牢地图：墙体网格、地形（草丛 / 浅水 / 尖刺）、三条兵线、野区房间、Boss 巢穴、防御塔、营地、宝箱、炸药桶
 // 所有布局只写蓝方一半，另一半按地图中心点对称生成
 import { TILE, GRID_W, GRID_H, mirror } from './config.js';
 import { seeded } from './math.js';
@@ -8,43 +8,72 @@ const mt = (i, j) => [W - 1 - i, H - 1 - j];
 
 // 地板区域（含端点的瓦片矩形）[i0, j0, i1, j1]
 const CARVE = [
-  [1, 10, 8, 21], // 基地
-  [6, 3, 8, 9], [6, 22, 8, 28], // 基地通往上下路
-  [6, 3, 53, 5], // 上路
-  [8, 14, 51, 17], // 中路
-  [11, 7, 17, 11], [13, 6, 14, 6], [18, 9, 19, 10], [11, 12, 11, 13], // 野区 A
-  [20, 8, 25, 12], [22, 13, 23, 13], [26, 9, 26, 10], // 野区 B
-  [27, 7, 32, 11], [29, 6, 30, 6], [29, 12, 30, 13], // 上方 Boss 巢穴
-  [11, 20, 17, 24], [13, 25, 14, 25], [18, 21, 19, 22], [11, 18, 11, 19], // 野区 C
-  [20, 19, 25, 23], [22, 18, 23, 18], [26, 21, 26, 22], // 野区 D
-  [27, 13, 32, 18], // 中央十字路口
+  [1, 13, 10, 26], // 基地
+  [7, 2, 11, 12], [7, 27, 11, 37], // 基地通往上下路
+  [7, 2, 64, 6], // 上路（5 格宽）
+  [10, 17, 61, 22], // 中路（6 格宽）
+  [13, 8, 22, 15], [15, 7, 18, 7], [23, 10, 24, 13], [14, 16, 15, 16], // 野区 A
+  [25, 8, 31, 14], [28, 15, 30, 16], [30, 7, 31, 7], [32, 10, 32, 12], // 野区 B
+  [33, 8, 38, 14], [35, 7, 36, 7], [35, 15, 36, 16], // 上方 Boss 巢穴
+  [13, 24, 22, 31], [15, 32, 18, 32], [23, 26, 24, 29], [14, 23, 15, 23], // 野区 C
+  [25, 25, 31, 31], [28, 23, 30, 24], [28, 32, 29, 32], [32, 27, 32, 29], // 野区 D
+  [32, 15, 39, 24], // 中央广场
 ];
-// 房间与中路中的石柱
-const PILLARS = [[16, 8], [21, 11], [12, 23], [24, 20], [17, 14], [25, 14], [28, 14]];
+// 房间与中路里的石柱
+const PILLARS = [[20, 10], [26, 13], [16, 29], [30, 26], [18, 17], [27, 22], [34, 16]];
+
+// 地形：1 草丛 / 2 浅水 / 3 尖刺
+export const BUSH = 1, WATER = 2, SPIKE = 3;
+const TERRAIN = [
+  [BUSH, 17, 5, 20, 6], [BUSH, 28, 2, 31, 3], [BUSH, 44, 5, 46, 6],
+  [BUSH, 15, 17, 16, 17], [BUSH, 23, 22, 25, 22],
+  [BUSH, 13, 14, 15, 15], [BUSH, 29, 8, 31, 9], [BUSH, 20, 24, 22, 25], [BUSH, 25, 30, 26, 31],
+  [BUSH, 32, 15, 33, 16], [BUSH, 37, 8, 38, 9],
+  [WATER, 34, 19, 37, 20], [WATER, 26, 11, 27, 12], [WATER, 17, 11, 18, 12], [WATER, 26, 27, 27, 28],
+  [SPIKE, 23, 11, 24, 12], [SPIKE, 23, 27, 24, 28], [SPIKE, 30, 19, 30, 20], [SPIKE, 15, 16, 15, 16],
+];
 
 export const LANES = ['top', 'mid', 'bot'];
 
 function buildMap() {
   const grid = new Uint8Array(W * H).fill(1);
-  const set = (i, j, v) => { if (i >= 0 && j >= 0 && i < W && j < H) grid[j * W + i] = v; };
-  for (const [i0, j0, i1, j1] of CARVE) {
-    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
-      set(i, j, 0);
-      const [mi, mj] = mt(i, j);
-      set(mi, mj, 0);
-    }
-  }
-  for (const [i, j] of PILLARS) {
-    set(i, j, 1);
-    const [mi, mj] = mt(i, j);
-    set(mi, mj, 1);
+  const terrain = new Uint8Array(W * H);
+  const set = (arr, i, j, v) => { if (i >= 0 && j >= 0 && i < W && j < H) arr[j * W + i] = v; };
+  const both = (arr, i, j, v) => { set(arr, i, j, v); const [mi, mj] = mt(i, j); set(arr, mi, mj, v); };
+  for (const [i0, j0, i1, j1] of CARVE) for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) both(grid, i, j, 0);
+  for (const [i, j] of PILLARS) both(grid, i, j, 1);
+  for (const [v, i0, j0, i1, j1] of TERRAIN) {
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) if (grid[j * W + i] === 0) both(terrain, i, j, v);
   }
 
-  // 兵线路径（蓝方 → 红方）
+  // 草丛连通区域编号：同一片草丛里的单位互相可见
+  const bushId = new Int16Array(W * H).fill(-1);
+  let nb = 0;
+  for (let k = 0; k < W * H; k++) {
+    if (terrain[k] !== BUSH || bushId[k] >= 0) continue;
+    const stack = [k];
+    bushId[k] = nb;
+    while (stack.length) {
+      const c = stack.pop();
+      const ci = c % W, cj = (c - ci) / W;
+      for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const ni = ci + di, nj = cj + dj;
+        if (ni < 0 || nj < 0 || ni >= W || nj >= H) continue;
+        const n = nj * W + ni;
+        if (terrain[n] === BUSH && bushId[n] < 0) { bushId[n] = nb; stack.push(n); }
+      }
+    }
+    nb++;
+  }
+
+  // 尖刺瓦片：每块有自己的相位，周期性升起
+  const spikes = [];
+  for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) if (terrain[j * W + i] === SPIKE) spikes.push({ i, j, x: (i + 0.5) * TILE, y: (j + 0.5) * TILE, phase: ((i + j) % 2) * 0.6 });
+
   const blue = {
-    top: [[600, 1060], [600, 360], [4200, 360], [4200, 1100], [4500, 1280]],
-    mid: [[720, 1280], [4080, 1280], [4500, 1280]],
-    bot: [[600, 1500], [600, 2200], [4200, 2200], [4200, 1460], [4500, 1280]],
+    top: [[760, 1200], [760, 360], [5000, 360], [5000, 1350], [5400, 1600]],
+    mid: [[880, 1600], [4880, 1600], [5400, 1600]],
+    bot: [[760, 2000], [760, 2840], [5000, 2840], [5000, 1850], [5400, 1600]],
   };
   const toPts = (arr) => arr.map(([x, y]) => ({ x, y }));
   const mirPath = (arr) => arr.map(([x, y]) => mirror(x, y));
@@ -53,46 +82,38 @@ function buildMap() {
     { top: mirPath(blue.bot), mid: mirPath(blue.mid), bot: mirPath(blue.top) },
   ];
 
-  // 防御塔：每路外塔 + 内塔，基地水晶
   const towerSpots = [];
-  const addTower = (team, lane, tier, x, y) => {
-    const p = team === 0 ? { x, y } : mirror(x, y);
-    towerSpots.push({ team, lane, tier, ...p });
-  };
+  const addTower = (team, lane, tier, x, y) => towerSpots.push({ team, lane, tier, ...(team === 0 ? { x, y } : mirror(x, y)) });
   for (const team of [0, 1]) {
-    // 红方的上路 = 蓝方下路的镜像
     const L = (l) => (team === 0 ? l : l === 'top' ? 'bot' : l === 'bot' ? 'top' : 'mid');
-    addTower(team, L('top'), 'inner', 1000, 360);
-    addTower(team, L('top'), 'outer', 1800, 360);
-    addTower(team, L('mid'), 'inner', 1060, 1280);
-    addTower(team, L('mid'), 'outer', 1860, 1280);
-    addTower(team, L('bot'), 'inner', 1000, 2200);
-    addTower(team, L('bot'), 'outer', 1800, 2200);
-    addTower(team, 'base', 'core', 300, 1280);
+    addTower(team, L('top'), 'inner', 1300, 360);
+    addTower(team, L('top'), 'outer', 2300, 360);
+    addTower(team, L('mid'), 'inner', 1350, 1600);
+    addTower(team, L('mid'), 'outer', 2350, 1600);
+    addTower(team, L('bot'), 'inner', 1300, 2840);
+    addTower(team, L('bot'), 'outer', 2300, 2840);
+    addTower(team, 'base', 'core', 360, 1600);
   }
 
-  // 野怪营地
   const camps = [];
-  const addCamp = (type, x, y, side) => {
+  const addCamp = (type, x, y) => {
     camps.push({ type, x, y, side: 0 });
     const m = mirror(x, y);
     camps.push({ type, x: m.x, y: m.y, side: 1 });
   };
-  addCamp('skeleton', 1160, 760);
-  addCamp('golem', 1840, 840);
-  addCamp('spider', 1160, 1800);
-  addCamp('wolf', 1840, 1720);
-  camps.push({ type: 'dragon', x: 2400, y: 740, side: -1 });
-  camps.push({ type: 'colossus', x: 2400, y: 1820, side: -1 });
+  addCamp('skeleton', 1440, 960);
+  addCamp('golem', 2240, 900);
+  addCamp('spider', 1440, 2240);
+  addCamp('wolf', 2240, 2300);
+  camps.push({ type: 'dragon', x: 2880, y: 900, side: -1 });
+  camps.push({ type: 'colossus', x: 2880, y: 2300, side: -1 });
 
-  // 宝箱
   const chests = [];
-  for (const [x, y] of [[930, 900], [1390, 1930], [2620, 1940]]) {
-    chests.push({ x, y });
-    chests.push(mirror(x, y));
-  }
+  for (const [x, y] of [[1100, 700], [1780, 2500], [3060, 2480]]) { chests.push({ x, y }); chests.push(mirror(x, y)); }
+  const barrels = [];
+  for (const [x, y] of [[1700, 680], [2000, 1060], [1240, 2460], [2440, 2060], [2700, 1300], [1950, 440]]) { barrels.push({ x, y }); barrels.push(mirror(x, y)); }
 
-  return { grid, lanePaths, towerSpots, camps, chests };
+  return { grid, terrain, bushId, spikes, lanePaths, towerSpots, camps, chests, barrels };
 }
 
 export const MAP = buildMap();
@@ -102,8 +123,18 @@ export function solid(i, j) {
   return MAP.grid[j * W + i] === 1;
 }
 export const wallAt = (x, y) => solid(Math.floor(x / TILE), Math.floor(y / TILE));
+export function terrainAt(x, y) {
+  const i = Math.floor(x / TILE), j = Math.floor(y / TILE);
+  if (i < 0 || j < 0 || i >= W || j >= H) return 0;
+  return MAP.terrain[j * W + i];
+}
+export function bushAt(x, y) {
+  const i = Math.floor(x / TILE), j = Math.floor(y / TILE);
+  if (i < 0 || j < 0 || i >= W || j >= H) return -1;
+  return MAP.bushId[j * W + i];
+}
 
-// 装饰物件：墙上烛台、蘑菇、蕨类、晶石、骸骨
+// 装饰物件：墙上烛台、草丛叶簇、蘑菇、蕨类、晶石、骸骨
 export function buildProps() {
   const rnd = seeded(7);
   const props = [];
@@ -115,18 +146,20 @@ export function buildProps() {
       props.push({ type: 'sconce', x: (i + 0.5) * TILE, y: (j + 1) * TILE + 2, h: 48, seed: rnd() });
     }
   }
-  const floorSpot = (x0, y0, x1, y1, tries = 30) => {
-    for (let t = 0; t < tries; t++) {
-      const x = x0 + rnd() * (x1 - x0), y = y0 + rnd() * (y1 - y0);
-      const i = Math.floor(x / TILE), j = Math.floor(y / TILE);
-      if (!solid(i, j)) return { x, y };
+  // 草丛：每块瓦片铺 3 排叶簇，能盖住站在里面的角色
+  for (let j = 0; j < H; j++) {
+    for (let i = 0; i < W; i++) {
+      if (MAP.terrain[j * W + i] !== BUSH) continue;
+      for (let r = 0; r < 3; r++) {
+        for (let c = 0; c < 3; c++) {
+          props.push({ type: 'bush', x: (i + 0.17 + c * 0.33 + (rnd() - 0.5) * 0.12) * TILE, y: (j + 0.22 + r * 0.33) * TILE, s: 0.85 + rnd() * 0.35, seed: rnd(), bush: MAP.bushId[j * W + i] });
+        }
+      }
     }
-    return null;
-  };
-  // 野区与基地的装饰（沿墙脚摆放）
+  }
   for (let j = 1; j < H - 1; j++) {
     for (let i = 1; i < W - 1; i++) {
-      if (solid(i, j)) continue;
+      if (solid(i, j) || MAP.terrain[j * W + i]) continue;
       const nearWall = solid(i, j - 1) || solid(i - 1, j) || solid(i + 1, j);
       if (!nearWall) continue;
       const r = rnd();
@@ -137,11 +170,10 @@ export function buildProps() {
     }
   }
   for (const c of MAP.camps) {
-    if (c.side === -1) {
-      for (let n = 0; n < 4; n++) {
-        const p = floorSpot(c.x - 200, c.y - 140, c.x + 200, c.y + 140);
-        if (p) props.push({ type: 'crystal', x: p.x, y: p.y, seed: rnd() });
-      }
+    if (c.side !== -1) continue;
+    for (let n = 0; n < 6; n++) {
+      const x = c.x + (rnd() - 0.5) * 420, y = c.y + (rnd() - 0.5) * 420;
+      if (!solid(Math.floor(x / TILE), Math.floor(y / TILE))) props.push({ type: 'crystal', x, y, seed: rnd() });
     }
   }
   return props;

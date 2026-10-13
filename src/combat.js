@@ -1,6 +1,7 @@
 // 伤害结算与命中判定
 import { angleDiff, norm, segDist } from './math.js';
 import { sfx } from './audio.js';
+import { passiveDamage, passiveOnHit, passiveOnHurt } from './passives.js';
 
 export function enemiesOf(game, team) {
   return game.units.filter((u) => u.alive && u.targetable && u.team !== team);
@@ -21,10 +22,11 @@ export function dealDamage(game, src, target, amount, opts = {}) {
     }
     return false;
   }
-  const owner = src.owner || src;
+  const owner = src.owner || src.master || src;
 
   // 攻击方加成、伏击加成、受击方减伤
   if (!opts.raw && owner.attrs) amount *= owner.attrs.power;
+  if (owner.kind === 'hero') { opts = { ...opts }; amount = passiveDamage(owner, target, amount, opts, game); owner.revealT = Math.max(owner.revealT, 0.8); }
   if (!opts.dot && owner.buffs?.ambush > 0) { amount *= 1.8; owner.buffs.ambush = 0; }
   if (target.attrs) amount *= 1 - target.attrs.armor;
   if (target.kind === 'tower' || target.kind === 'core') {
@@ -58,6 +60,8 @@ export function dealDamage(game, src, target, amount, opts = {}) {
     target.lastDmgT = game.time;
   }
   target.onHurt?.(owner);
+  if (owner.kind === 'hero') passiveOnHit(owner, target, opts, game);
+  if (target.kind === 'hero') passiveOnHurt(target, owner, amount, opts, game);
 
   // 伤害数字：只显示和玩家相关的、或英雄受到的伤害
   const near = game.player && Math.hypot(target.x - game.player.x, target.y - game.player.y) < 900;
@@ -65,6 +69,7 @@ export function dealDamage(game, src, target, amount, opts = {}) {
     let color = '#e8e4f4', size = 13;
     if (target === game.player) { color = '#ff5a5a'; size = 18; }
     else if (owner === game.player) { color = amount >= 100 ? '#ffd24a' : '#fff2b0'; size = amount >= 100 ? 24 : 17; }
+    if (opts._crit) { color = '#ff9a3d'; size += 6; }
     if (opts.dot) { color = opts.color || '#ff9a40'; size = 13; }
     if (target.kind === 'hero' || owner === game.player || target === game.player) game.fx.damage(target, amount, color, size);
   }
