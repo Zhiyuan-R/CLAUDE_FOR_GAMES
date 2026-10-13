@@ -47,3 +47,5 @@ aside { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .msg .t { color: var(--muted); font-size: 11px; }
 #order { display: flex; gap: 6px; }
 #order input { flex: 1; min-width: 0; }
+.view { color: var(--muted); font-size: 11px; margin-right: 6px; }
+.view:hover { color: var(--gold); }

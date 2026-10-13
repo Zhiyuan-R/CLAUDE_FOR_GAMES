@@ -78,14 +78,15 @@ function bar(label, v, max, color) {
   return `<span>${label}</span><div class="bar"><i style="width:${Math.max(0, Math.min(100, (v / max) * 100))}%;background:${color}"></i></div><span>${v}</span>`;
 }
 
-const SRC = { llm: '大模型', heuristic: '规则后备', error: '调用失败' };
+const SRC = { llm: '决策模型', heuristic: '规则后备', error: '调用失败' };
 
 function renderGenerals() {
   const html = state.units.filter((u) => u.side === 'ally').map((u) => `
     <div class="gen ${u.alive ? '' : 'dead'}">
       <div class="top">
         <span class="name"><b>${u.id}</b> ${esc(u.title)} · ${esc(u.name)} <span class="act">${KIND_GLYPH[u.kind]}兵 (${u.x},${u.y})</span></span>
-        ${u.brainSource ? `<span class="src ${u.brainSource}">${SRC[u.brainSource] || u.brainSource}</span>` : ''}
+        <span>${u.alive ? `<a class="view" href="/api/view/${u.id}.png" target="_blank" title="模型此刻看到的战场图">模型视角</a>` : ''}
+        ${u.brainSource ? `<span class="src ${u.brainSource}">${SRC[u.brainSource] || u.brainSource}</span>` : ''}</span>
       </div>
       <div class="bars">
         ${bar('兵力', u.troops, u.maxTroops, '#6cc070')}
@@ -136,7 +137,7 @@ function render() {
   const brain = $('#brain');
   brain.className = 'badge ' + (b.usingLLM && !b.lastError ? 'llm' : 'fallback');
   brain.textContent = b.usingLLM
-    ? `🧠 ${b.model}${b.lastError ? ' · 调用异常' : ''}`
+    ? `🧠 ${b.model}${b.images ? ' · 看图' : ''}${b.lastError ? ' · 调用异常' : b.latencyMs ? ` · ${b.latencyMs}ms` : ''}`
     : `⚙ 规则后备（${b.hasKey ? b.mode : '未配置 API Key'}）`;
   brain.title = b.lastError || `${b.baseUrl} · 调用 ${b.llmCalls} 次，失败 ${b.llmFailures} 次`;
   $('#events').innerHTML = state.events.slice().reverse().map((e) => `<div>[${e.tick}] ${esc(e.text)}</div>`).join('');

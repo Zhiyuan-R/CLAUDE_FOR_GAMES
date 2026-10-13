@@ -23,42 +23,43 @@
 
 ## 将领是怎么"思考"的
 
-每位将领在收到新命令、局势变化（发现新敌人、兵力大幅下降、抵达目的地、溃散）或每隔约 6 回合时，
-会把自己的**感知**发给模型：
+将领由 SubQ 的**决策模型** `subq-snap-preview`（[Decisions API](https://docs.subq.ai/endpoints/decisions-api/)，`POST /v1/systemone`）驱动。
+这类模型不生成文字，而是读一段状态 + 图片，对一组"问题"给出带概率的类型化答案，单次调用约 0.2–0.7 秒，适合实时游戏。
 
-- 自己的状态（位置、地形、兵力、士气、羁绊、当前行动）；
-- 带迷雾的 ASCII 战场地图（`@` 是自己，`A/B/C` 友军，数字是敌军）；
-- 可见敌军列表（距离、方向、兵力）、友军动向、最近战报；
-- 军议频道最近的消息（主公命令和其他将领的发言，新消息有 `[新]` 标记）。
+每位将领在收到新命令、局势变化（发现新敌人、兵力大幅下降、抵达目的地、溃散）或每隔约 4 回合时做一次决策，请求包含：
 
-模型返回一个 JSON 决策：
+- **state**：将领人设 + 文字感知（自己的状态、带迷雾的 ASCII 地图、可见敌军、友军动向、战报、军议频道最近消息，新消息带 `[新]`）；
+- **images**：渲染出的战场俯视图 PNG（纯 Node 绘制，见 `src/render.js`；界面上每位将领的「模型视角」链接可以看到这张图）；
+- **questions**：
+  - `action`（choice）：从当前可行的具体选项里选一个——进攻某个可见敌军、前往主公命令里提到的坐标、前往桥/山丘/村庄/帅旗等要地、支援某位友军、驻守、撤退、继续当前行动；
+  - 有新命令时额外问 `obey`（noul，是否照办）、`morale` / `bond`（score，主公这番话让士气 / 羁绊怎么变）。
 
-```json
-{"thought":"内心想法","say":"对军议频道说的话","to":"all",
- "action":{"type":"attack","target":"E2"},
- "feeling":{"morale":3,"bond":2}}
+返回示例（主公对霍烈说"你是我最信任的将军！从北桥 (12,3) 绕过去……"）：
+
+```text
+action: 北桥 77% · (12,3) 12% · 中桥 7%      → 行军至 (12,3)
+obey:   0.93                                  → 领命
+morale: 3.71 / 4   bond: 3.49 / 4             → 士气 +4，羁绊 +4
+台词:   哈哈，主公瞧好吧！ 末将领命，行军至 (12,3)！
 ```
 
-引擎校验后执行（`move` / `attack` / `hold` / `retreat`），`feeling` 用来把主公话语中的情绪落到士气/羁绊数值上。
-模型调用是异步的，不会阻塞游戏循环；每个将领同一时间最多一个请求在途。
-
-模型接口是 OpenAI 兼容的 Chat Completions（默认 [SubQ](https://docs.subq.ai/)：`https://api.subq.ai/v1`，模型 `subq-preview`），
-换成任何兼容接口只需改 `.env`。目前只用文本输入（SubQ 现阶段只支持文本），战场以文字/ASCII 形式提供给模型。
+动作和数值完全由模型决定；因为决策模型不输出文字，将领的台词是按其性格模板、根据模型的决策（服从/异议、情绪变化、发现敌军、伤亡）拼出来的。
+界面上将领卡片里的"内心想法"就是模型给出的前几个选项的概率。
 
 ### 后备规则引擎
 
 `BRAIN_MODE=auto`（默认）时，如果没有配置 Key 或模型调用失败，会退回到一个只认关键词（坐标、`E2`、"撤""守"）的规则引擎，
-保证游戏能玩。界面上每条决策都有来源标签：`大模型` / `规则后备` / `调用失败`，不会把规则引擎的决策冒充成模型的。
-`BRAIN_MODE=llm` 只用模型（失败时显示错误）；`BRAIN_MODE=heuristic` 只用规则。
+保证游戏能玩。界面上每条决策都有来源标签：`决策模型` / `规则后备` / `调用失败`，不会把规则引擎的决策冒充成模型的。
+`BRAIN_MODE=llm` 只用模型（失败时显示错误）；`BRAIN_MODE=heuristic` 只用规则。`LLM_IMAGES=0` 可以关掉图片输入做对比。
 
 ## 运行（在云端或本地）
 
-只需要 Node 18+，**没有任何 npm 依赖**。
+需要 Node 22.21+，**没有任何 npm 依赖**。
 
 ```bash
 cd games/war-council
 cp .env.example .env      # 填入 LLM_API_KEY
-npm run check-llm         # 用一条真实的将领感知测试模型连通性
+npm run check-llm         # 用一条真实的将领感知 + 战场图测试决策模型（--save view.png 保存图片）
 npm start                 # 打开 http://localhost:8787
 npm run sim               # 无界面：按脚本下令跑一整场，打印军议和战报
 npm test
@@ -66,15 +67,18 @@ npm test
 
 在 Claude Code 云端环境里运行时，环境的网络策略需要允许访问 `api.subq.ai`
 （环境设置 → Network access → 加入 Allowed domains，或使用更宽的访问级别）。
+Node 内置的 `fetch` 默认不走 `HTTPS_PROXY`；检测到代理时，入口脚本会自动带上 `NODE_USE_ENV_PROXY=1` 重启自己（`src/proxy.js`），无需手动设置。
 
 ## 代码结构
 
 ```
 server.js        HTTP 服务：游戏循环 + SSE 推送状态 + 下令接口
 cli.js           无界面对局（脚本化命令）
-check-llm.js     模型连通性检查
+check-llm.js     决策模型连通性检查
 src/engine.js    地图、单位、移动、战斗、迷雾、将领感知文本、胜负判定
-src/brain.js     模型调用、JSON 决策解析、规则后备、决策调度（Council）
+src/brain.js     决策问题构造、Decisions API 调用、答案解读与台词、规则后备、决策调度（Council）
+src/render.js    战场 PNG 渲染（给模型看的图）
+src/proxy.js     云端代理支持
 src/env.js       极简 .env 加载
 public/          浏览器界面（Canvas 战场 + 将领面板 + 军议频道）
 test/            node:test 单元测试
@@ -85,4 +89,4 @@ test/            node:test 单元测试
 - 敌方也换成模型驱动的"敌军主帅"，变成两个 AI 军团对弈；
 - 语音下令（浏览器语音识别 → 军议频道）；
 - 将领之间私聊、互相争功或不和；战后复盘让将领各自写"战报"；
-- 等多模态接口可用时，把战场截图直接给模型看，而不是 ASCII 地图。
+- 如果 Key 开通了 `subq-preview` 等对话模型，可以让将领台词也由模型生成（决策仍用决策模型，快且稳）。
