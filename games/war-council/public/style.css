@@ -1,0 +1,49 @@
+:root {
+  --bg: #15130f; --panel: #201d17; --line: #3a342a; --ink: #eadfc8; --muted: #9b8f78;
+  --ally: #4fa3e0; --enemy: #e0574f; --gold: #d9a441; --ok: #6cc070;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 system-ui, "PingFang SC", "Microsoft YaHei", sans-serif; }
+header { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--line); gap: 12px; flex-wrap: wrap; }
+h1 { margin: 0; font-size: 20px; letter-spacing: 2px; }
+h1 small { color: var(--muted); font-size: 12px; letter-spacing: 0; }
+#hud { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.badge { padding: 2px 8px; border-radius: 10px; border: 1px solid var(--line); font-size: 12px; }
+.badge.llm { border-color: var(--ok); color: var(--ok); }
+.badge.fallback { border-color: var(--gold); color: var(--gold); }
+button, select, input { background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; font: inherit; }
+button { cursor: pointer; }
+button:hover { border-color: var(--gold); }
+main { display: grid; grid-template-columns: minmax(0, 784px) minmax(320px, 1fr); gap: 16px; padding: 16px; }
+@media (max-width: 1100px) { main { grid-template-columns: 1fr; } }
+#field { min-width: 0; }
+canvas { width: 100%; max-width: 768px; height: auto; border: 1px solid var(--line); border-radius: 6px; cursor: crosshair; display: block; }
+.hint { color: var(--muted); font-size: 12px; margin: 6px 0; }
+#banner { padding: 12px; border-radius: 6px; margin: 8px 0; font-size: 16px; text-align: center; background: #2b2417; border: 1px solid var(--gold); }
+#events { font-size: 12px; color: var(--muted); max-height: 160px; overflow: auto; border-top: 1px solid var(--line); padding-top: 6px; }
+aside { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+#generals { display: grid; gap: 8px; }
+.gen { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.gen.dead { opacity: .45; }
+.gen .top { display: flex; justify-content: space-between; gap: 8px; }
+.gen .name b { color: var(--ally); }
+.gen .act { color: var(--muted); font-size: 12px; }
+.bars { display: grid; grid-template-columns: 34px 1fr 34px; gap: 2px 6px; font-size: 11px; color: var(--muted); align-items: center; margin: 4px 0; }
+.bar { height: 6px; background: #000; border-radius: 3px; overflow: hidden; }
+.bar i { display: block; height: 100%; }
+.thought { font-size: 12px; color: #c9b98f; font-style: italic; }
+.thinking::after { content: ' 思考中…'; color: var(--gold); font-style: normal; animation: blink 1s infinite; }
+@keyframes blink { 50% { opacity: .3; } }
+.src { font-size: 10px; padding: 0 5px; border-radius: 8px; border: 1px solid var(--line); }
+.src.llm { color: var(--ok); border-color: var(--ok); }
+.src.heuristic { color: var(--gold); border-color: var(--gold); }
+.src.error { color: var(--enemy); border-color: var(--enemy); }
+#chat { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; height: 300px; overflow: auto; font-size: 13px; }
+.msg { margin: 3px 0; }
+.msg .who { font-weight: 600; }
+.msg.player .who { color: var(--gold); }
+.msg.system { color: var(--muted); }
+.msg .gen-who { color: var(--ally); }
+.msg .t { color: var(--muted); font-size: 11px; }
+#order { display: flex; gap: 6px; }
+#order input { flex: 1; min-width: 0; }

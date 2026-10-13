@@ -1,0 +1,14 @@
+{
+  "name": "war-council",
+  "version": "0.1.0",
+  "description": "Real-time tactics game whose generals are driven by a language model.",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node server.js",
+    "sim": "node cli.js --fast",
+    "check-llm": "node check-llm.js",
+    "test": "node --test test/*.test.js"
+  }
+}
