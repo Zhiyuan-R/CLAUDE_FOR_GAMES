@@ -97,10 +97,18 @@ function animPos(id, now) {
 const LW = () => PAD + init.W * CELL + 6;
 const LH = () => PAD + init.H * CELL + 6;
 
+// On wide screens the whole game fits the window: the map takes the largest
+// size that fits the space left beside the side panel. On narrow screens the
+// page stacks and the map simply fills the width.
+const oneScreen = window.matchMedia('(min-width: 900px)');
 function resize() {
   if (!init) return;
   const dpr = window.devicePixelRatio || 1;
-  const cssW = canvas.parentElement.clientWidth - 20;
+  const area = $('.map-area');
+  const frame = 20; // the frame's padding around the canvas
+  let cssW = area.clientWidth - frame;
+  if (oneScreen.matches) cssW = Math.min(cssW, ((area.clientHeight - frame) * LW()) / LH());
+  cssW = Math.max(240, Math.floor(cssW));
   canvas.style.width = cssW + 'px';
   canvas.style.height = (cssW * LH()) / LW() + 'px';
   canvas.width = Math.round(cssW * dpr);
@@ -108,7 +116,10 @@ function resize() {
   scale = canvas.width / LW();
   terrainLayer = paintTerrain();
 }
-window.addEventListener('resize', () => { clearTimeout(resize.t); resize.t = setTimeout(resize, 120); });
+const scheduleResize = () => { clearTimeout(resize.t); resize.t = setTimeout(resize, 80); };
+window.addEventListener('resize', scheduleResize);
+oneScreen.addEventListener?.('change', scheduleResize);
+if (window.ResizeObserver) new ResizeObserver(() => { if (oneScreen.matches) scheduleResize(); }).observe($('.map-area'));
 document.fonts?.ready.then(() => { if (init) terrainLayer = paintTerrain(); });
 
 // ---------- terrain (painted once) ----------

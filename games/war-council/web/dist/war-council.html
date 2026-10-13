@@ -103,7 +103,7 @@ h1 { margin: 0; font: 700 24px/1 var(--display); letter-spacing: 3px; color: var
   padding: 18px 22px 22px;
   max-width: 1500px; margin: 0 auto;
 }
-@media (max-width: 1100px) {
+@media (max-width: 899px) {
   .layout { grid-template-columns: 1fr; padding: 12px 16px; }
   .topbar { grid-template-columns: 1fr auto; padding: 10px 16px; }
   .campaign { grid-column: 1 / -1; grid-row: 2; }
@@ -161,11 +161,6 @@ canvas#map { display: block; width: 100%; height: auto; border-radius: 6px; curs
 
 /* ---------- side ---------- */
 .side { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-@media (min-width: 1101px) {
-  .side { position: sticky; top: 86px; height: calc(100vh - 104px); min-height: 640px; }
-  .comms { min-height: 0; }
-  .pane { max-height: none; min-height: 0; }
-}
 .panel {
   background: linear-gradient(180deg, var(--panel), var(--bg-2));
   border: 1px solid var(--line-soft); border-radius: var(--radius);
@@ -297,6 +292,55 @@ canvas#map { display: block; width: 100%; height: auto; border-radius: 6px; curs
   .verdict { font-size: 56px; }
 }
 
+/* One screen: on wide windows everything fits the viewport without page
+   scrolling. The map scales to the space left (see resize() in app.js) and
+   the council chat scrolls inside its own panel. */
+@media (min-width: 900px) {
+  html, body { overflow: hidden; }
+  body { display: flex; flex-direction: column; }
+  .topbar { position: static; flex: none; padding: 8px 18px; gap: 18px; }
+  .objective { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  .layout {
+    flex: 1; min-height: 0; width: 100%; max-width: 1700px;
+    grid-template-columns: minmax(0, 1fr) clamp(320px, 27vw, 400px);
+    grid-template-rows: minmax(0, 1fr);
+    padding: 12px 18px 14px; gap: 14px;
+  }
+  .board { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+  .map-area { flex: 1; min-height: 0; display: grid; place-items: center; overflow: hidden; }
+  .legend { flex: none; margin-top: 8px; flex-wrap: nowrap; overflow: hidden; white-space: nowrap; }
+  .legend .tip { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .side { min-height: 0; gap: 8px; }
+  .generals { flex: none; gap: 8px; }
+  .comms { flex: 1; min-height: 0; }
+  .pane { max-height: none; min-height: 0; }
+}
+/* Shorter windows: tighter cards so the council chat keeps its room. */
+@media (min-width: 900px) and (max-height: 900px) {
+  .sub { display: none; }
+  .gen { padding: 7px 10px; gap: 2px 10px; grid-template-columns: 38px 1fr; }
+  .medal { width: 38px; height: 38px; grid-row: span 2; }
+  .medal .face { inset: 4px; font-size: 16px; }
+  .gen-name { font-size: 14px; }
+  .stats { gap: 8px; }
+  .stat { gap: 2px; font-size: 10px; }
+  .doing { font-size: 11px; grid-column: 1 / -1; }
+  .mind { margin-top: 0; padding-top: 4px; gap: 3px; }
+  .seg { height: 4px; }
+  .tabs { padding-top: 2px; }
+  .tab { padding: 5px 10px 6px; }
+  .pane { padding: 6px 10px; }
+  .msg { margin: 5px 0; }
+  .bubble .text { padding: 4px 9px; }
+  #order { padding: 8px 10px 10px; gap: 6px; }
+  .compose input { padding: 7px 10px; }
+  .legend .tip { display: none; }
+}
+@media (min-width: 900px) and (max-height: 760px) {
+  .seglegend span:not(:first-child):not(.obey) { display: none; }
+  .rcpt { padding: 1px 10px; }
+}
+
 /* web edition */
 :root { color-scheme: dark; }
 html, body { background: var(--bg); }
@@ -364,13 +408,15 @@ html, body { background: var(--bg); }
 
   <main class="layout">
     <section class="board">
-      <div class="map-frame">
-        <canvas id="map"></canvas>
-        <div id="tooltip" hidden></div>
-        <div id="overlay" hidden>
-          <div class="verdict" id="verdict"></div>
-          <p id="verdict-text"></p>
-          <button id="again">Fight again</button>
+      <div class="map-area">
+        <div class="map-frame">
+          <canvas id="map"></canvas>
+          <div id="tooltip" hidden></div>
+          <div id="overlay" hidden>
+            <div class="verdict" id="verdict"></div>
+            <p id="verdict-text"></p>
+            <button id="again">Fight again</button>
+          </div>
         </div>
       </div>
       <div class="legend">
@@ -1578,10 +1624,18 @@ function animPos(id, now) {
 const LW = () => PAD + init.W * CELL + 6;
 const LH = () => PAD + init.H * CELL + 6;
 
+// On wide screens the whole game fits the window: the map takes the largest
+// size that fits the space left beside the side panel. On narrow screens the
+// page stacks and the map simply fills the width.
+const oneScreen = window.matchMedia('(min-width: 900px)');
 function resize() {
   if (!init) return;
   const dpr = window.devicePixelRatio || 1;
-  const cssW = canvas.parentElement.clientWidth - 20;
+  const area = $('.map-area');
+  const frame = 20; // the frame's padding around the canvas
+  let cssW = area.clientWidth - frame;
+  if (oneScreen.matches) cssW = Math.min(cssW, ((area.clientHeight - frame) * LW()) / LH());
+  cssW = Math.max(240, Math.floor(cssW));
   canvas.style.width = cssW + 'px';
   canvas.style.height = (cssW * LH()) / LW() + 'px';
   canvas.width = Math.round(cssW * dpr);
@@ -1589,7 +1643,10 @@ function resize() {
   scale = canvas.width / LW();
   terrainLayer = paintTerrain();
 }
-window.addEventListener('resize', () => { clearTimeout(resize.t); resize.t = setTimeout(resize, 120); });
+const scheduleResize = () => { clearTimeout(resize.t); resize.t = setTimeout(resize, 80); };
+window.addEventListener('resize', scheduleResize);
+oneScreen.addEventListener?.('change', scheduleResize);
+if (window.ResizeObserver) new ResizeObserver(() => { if (oneScreen.matches) scheduleResize(); }).observe($('.map-area'));
 document.fonts?.ready.then(() => { if (init) terrainLayer = paintTerrain(); });
 
 // ---------- terrain (painted once) ----------
