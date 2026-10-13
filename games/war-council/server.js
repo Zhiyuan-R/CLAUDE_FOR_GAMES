@@ -85,7 +85,7 @@ function main() {
         if (!t) return json(res, 400, { error: 'empty order' });
         const target = to === 'all' ? 'all' : game.unit(String(to))?.side === 'ally' ? String(to) : null;
         if (!target) return json(res, 400, { error: 'unknown recipient' });
-        game.say('player', '主公', target, t);
+        game.say('player', 'Commander', target, t);
         council.update(); // let generals react right away
         broadcast();
         return json(res, 200, { ok: true });

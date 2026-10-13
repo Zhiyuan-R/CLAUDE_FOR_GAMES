@@ -1,36 +1,36 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>军议 · War Council</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Crect width=%22100%22 height=%22100%22 rx=%2214%22 fill=%22%23b8342a%22/%3E%3Ctext x=%2250%22 y=%2270%22 font-size=%2260%22 text-anchor=%22middle%22 fill=%22%23f5e6c4%22%3E%E5%86%9B%3C/text%3E%3C/svg%3E" />
+  <title>War Council</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Crect width=%22100%22 height=%22100%22 rx=%2214%22 fill=%22%23b8342a%22/%3E%3Ctext x=%2250%22 y=%2268%22 font-family=%22Georgia,serif%22 font-weight=%22700%22 font-size=%2248%22 text-anchor=%22middle%22 fill=%22%23f5e6c4%22%3EWC%3C/text%3E%3C/svg%3E" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;600;700&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Spectral:ital,wght@0,400;0,600;1,400&display=swap" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <header class="topbar">
     <div class="brand">
-      <div class="seal">军<br />议</div>
+      <div class="seal">W<br />C</div>
       <div>
-        <h1>军议</h1>
-        <p class="sub">War Council · 河东之战</p>
+        <h1>War Council</h1>
+        <p class="sub">The Battle East of the River</p>
       </div>
     </div>
     <div class="campaign">
-      <div class="objective">目标：夺取 <b>敌方帅旗 (21,8)</b> 坚守三回合，或击溃全部敌军</div>
+      <div class="objective">Objective: hold the <b>Red banner (21,8)</b> for 3 turns, or rout every Red unit</div>
       <div class="progress">
         <div class="track"><i id="tickbar"></i></div>
-        <span id="tick">第 0 回合</span>
-        <span class="hold" id="hold" title="帅旗坚守进度"><i></i><i></i><i></i></span>
+        <span id="tick">Turn 0</span>
+        <span class="hold" id="hold" title="Banner hold progress"><i></i><i></i><i></i></span>
       </div>
     </div>
     <div class="controls">
       <div class="brain" id="brain"></div>
-      <button class="icon" id="pause" title="暂停 / 继续">❚❚</button>
-      <button class="icon" id="reset" title="重新开始">↻</button>
+      <button class="icon" id="pause" title="Pause / resume">❚❚</button>
+      <button class="icon" id="reset" title="Restart">↻</button>
     </div>
   </header>
 
@@ -42,17 +42,17 @@
         <div id="overlay" hidden>
           <div class="verdict" id="verdict"></div>
           <p id="verdict-text"></p>
-          <button id="again">再 战</button>
+          <button id="again">Fight again</button>
         </div>
       </div>
       <div class="legend">
-        <span><i class="tok blue"></i>蓝军将领</span>
-        <span><i class="tok red"></i>红军部队</span>
-        <span><i class="sw forest"></i>森林 防御+30%</span>
-        <span><i class="sw hill"></i>山丘 视野射程+</span>
-        <span><i class="sw village"></i>村庄 补给</span>
-        <span><i class="sw river"></i>河流 仅桥可渡</span>
-        <span class="tip">点地图插入坐标 · 点敌军插入编号 · 点己方将领选为收令人</span>
+        <span><i class="tok blue"></i>Blue generals</span>
+        <span><i class="tok red"></i>Red units</span>
+        <span><i class="sw forest"></i>Forest +30% defense</span>
+        <span><i class="sw hill"></i>Hill +range, +vision</span>
+        <span><i class="sw village"></i>Village resupply</span>
+        <span><i class="sw river"></i>River: bridges only</span>
+        <span class="tip">Click the map to insert a coordinate · click an enemy to insert its ID · click a general to address them</span>
       </div>
     </section>
 
@@ -61,9 +61,9 @@
 
       <div class="panel comms">
         <div class="tabs">
-          <button class="tab active" data-tab="chat">军议</button>
-          <button class="tab" data-tab="events">战报</button>
-          <button class="tab" data-tab="review" id="review-tab" hidden>敌军复盘</button>
+          <button class="tab active" data-tab="chat">Council</button>
+          <button class="tab" data-tab="events">Reports</button>
+          <button class="tab" data-tab="review" id="review-tab" hidden>Enemy review</button>
         </div>
         <div class="pane" id="chat"></div>
         <div class="pane" id="events" hidden></div>
@@ -71,8 +71,8 @@
         <form id="order">
           <div class="recipients" id="recipients"></div>
           <div class="compose">
-            <input id="text" autocomplete="off" placeholder="向众将下令，也可以鼓舞或责备他们……" />
-            <button class="send">下令</button>
+            <input id="text" autocomplete="off" placeholder="Order, rally or scold your generals…" />
+            <button class="send">Order</button>
           </div>
         </form>
       </div>

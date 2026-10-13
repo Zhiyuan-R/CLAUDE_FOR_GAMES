@@ -21,11 +21,11 @@ async function main() {
   const tickMs = fast ? 0 : Number(process.env.TICK_MS || 1000);
 
   const SCRIPT = [
-    [1, 'all', '诸位将军，敌军帅旗在河东 (21,8)。老秦守中桥 (12,8)，苏璃去山丘 (9,6) 掩护，霍烈先别冲动，等我号令。'],
-    [25, 'B', '苏璃，过中桥后去 (16,5) 附近压制山丘上的 E2 弓手。'],
-    [30, 'C', '老秦，带兵过中桥，挡住巡桥的 E4，你是全军的定海神针。'],
-    [60, 'A', '霍烈！从北桥 (12,3) 绕过去，冲击 E2 弓手的侧翼，此战首功归你！'],
-    [130, 'all', '干得漂亮！全军压上，目标帅旗 (21,8)！'],
+    [1, 'all', 'Generals, the Red banner is on the east bank at (21,8). Old Qin, hold the middle bridge (12,8). Su Li, cover us from the hill at (9,6). Huo Lie, no heroics yet — wait for my signal.'],
+    [25, 'B', 'Su Li, once across the middle bridge, move near (16,5) and suppress the E2 archers on the hill.'],
+    [30, 'C', 'Old Qin, lead your men over the middle bridge and stop the E4 bridge patrol. You are the rock this army stands on.'],
+    [60, 'A', 'Huo Lie! Swing around through the north bridge (12,3) and hit the E2 archers in the flank. The glory of this battle is yours!'],
+    [130, 'all', 'Well done, all of you! Everyone push forward — take the banner at (21,8)!'],
   ];
 
   const game = new Game();
@@ -35,7 +35,7 @@ async function main() {
   let printedMsg = 0, printedEv = 0;
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   for (let t = 0; t < ticks && game.status === 'playing'; t++) {
-    for (const [at, to, text] of SCRIPT) if (game.tick === at) game.say('player', '主公', to, text);
+    for (const [at, to, text] of SCRIPT) if (game.tick === at) game.say('player', 'Commander', to, text);
     game.step();
     council.update();
     // In fast mode give in-flight LLM calls a chance to land before the next tick.

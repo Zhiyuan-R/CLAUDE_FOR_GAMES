@@ -31,104 +31,112 @@ export const CAMP = { x: 2, y: 8 };
 export const BANNER = { x: 21, y: 8 };
 
 export const KINDS = {
-  cavalry: { label: '骑兵', speed: 2, atk: 1.3, def: 0.9, range: 1, vision: 5 },
-  infantry: { label: '步兵', speed: 1, atk: 1.0, def: 1.25, range: 1, vision: 4 },
-  archer: { label: '弓兵', speed: 1, atk: 0.85, def: 0.7, range: 3, vision: 6 },
+  cavalry: { label: 'cavalry', speed: 2, atk: 1.3, def: 0.9, range: 1, vision: 5 },
+  infantry: { label: 'infantry', speed: 1, atk: 1.0, def: 1.25, range: 1, vision: 4 },
+  archer: { label: 'archers', speed: 1, atk: 0.85, def: 0.7, range: 3, vision: 6 },
 };
 
 const TERRAIN = {
-  '.': { name: '平原', def: 1.0 },
-  F: { name: '森林', def: 1.3 },
-  H: { name: '山丘', def: 1.2 },
-  '~': { name: '河流', def: 1.0 },
-  '=': { name: '桥', def: 0.9 },
-  V: { name: '村庄', def: 1.1 },
-  C: { name: '我方大营', def: 1.2 },
-  B: { name: '敌方帅旗', def: 1.2 },
+  '.': { name: 'plains', def: 1.0 },
+  F: { name: 'forest', def: 1.3 },
+  H: { name: 'hill', def: 1.2 },
+  '~': { name: 'river', def: 1.0 },
+  '=': { name: 'bridge', def: 0.9 },
+  V: { name: 'village', def: 1.1 },
+  C: { name: 'Blue camp', def: 1.2 },
+  B: { name: 'Red banner', def: 1.2 },
 };
 
 export const GENERALS = [
   {
-    id: 'A', name: '霍烈', title: '赤骥将军', kind: 'cavalry', x: 3, y: 6, troops: 300,
+    id: 'A', name: 'Huo Lie', title: 'Crimson Steed General', kind: 'cavalry', x: 3, y: 6, troops: 300,
     lines: {
-      ack: ['得令！{act}，看我的！', '好！{act}，谁也拦不住我！', '末将领命，{act}！'],
-      object: ['主公，这也太憋屈了！末将要{act}！', '恕难从命——我要{act}！', '等？不等了，{act}！'],
-      cheered: ['哈哈，主公瞧好吧！', '有主公这句话，霍烈死而无憾！'],
-      hurt: ['……末将知道了。', '哼，那就让主公看看谁是废物！'],
-      spotted: ['发现敌军 {enemy}，在我{dir}方！'],
-      wounded: ['弟兄们折了不少，但还能打！'],
+      ack: ['Yes, my lord! {Act} — watch me!', 'Ha! {Act}. Nobody stops me!', 'Understood. {Act}!'],
+      object: ['My lord, this is too timid! I will {act}!', 'With respect — no. I will {act}!', 'Wait? Enough waiting. {Act}!'],
+      cheered: ['Ha! Just watch, my lord!', 'Words like that and I would ride through fire!'],
+      hurt: ['…As you say, my lord.', 'Hmph. Then I will show you who is useless!'],
+      spotted: ['Enemy {enemy} spotted to my {dir}!'],
+      wounded: ['We have lost good riders, but we can still fight!'],
     },
     persona:
-      '你是霍烈，年轻气盛的骑兵将军。你渴望荣耀，喜欢冲锋陷阵，讨厌撤退和等待。' +
-      '主公的赞美会让你热血沸腾；被冷落或被骂胆小会让你赌气。你说话豪爽、短促，偶尔夸口。' +
-      '你知道骑兵在平原冲锋最强，在森林和山丘施展不开，正面撞上列阵的步兵会吃亏。',
+      'You are Huo Lie, a young, hot-blooded cavalry general. You crave glory, love to charge, and hate retreating or waiting. ' +
+      'Praise from the commander sets your blood on fire; being ignored or called a coward makes you sulk and act rashly. ' +
+      'You speak boldly and briefly, and sometimes boast. You know cavalry charges best on open plains, is hampered in forests ' +
+      'and on hills, and suffers when it runs head-on into formed infantry.',
   },
   {
-    id: 'B', name: '苏璃', title: '青鸾军师', kind: 'archer', x: 3, y: 10, troops: 250,
+    id: 'B', name: 'Su Li', title: 'Azure Phoenix Strategist', kind: 'archer', x: 3, y: 10, troops: 250,
     lines: {
-      ack: ['明白，{act}。', '收到。{act}，我会保持距离。', '好，{act}，请友军注意配合。'],
-      object: ['主公，此令风险太大。我建议改为{act}。', '恕我直言，那样会白白折损兵力——我先{act}。'],
-      cheered: ['谢主公信任，苏璃必不负所托。', '……多谢。我会更谨慎些。'],
-      hurt: ['主公息怒，战局需要冷静。', '我会证明我的判断。'],
-      spotted: ['斥候回报：{enemy} 位于{dir}方，请诸将留意。'],
-      wounded: ['弓手伤亡较重，需要掩护。'],
+      ack: ['Understood. {Act}.', 'Copy that. {Act}; I will keep my distance.', 'Very well: {act}. Allies, please coordinate.'],
+      object: ['My lord, that order is too risky. I suggest we {act} instead.', 'Forgive me, but that would waste lives. I will {act} first.'],
+      cheered: ['Thank you for your trust, my lord. I will not fail you.', '…Thank you. I will be all the more careful.'],
+      hurt: ['Please, my lord, a battle needs a cool head.', 'I will prove my judgment right.'],
+      spotted: ['Scouts report: {enemy} to the {dir}. Stay alert, everyone.'],
+      wounded: ['Our archers are taking heavy losses. We need cover.'],
     },
     persona:
-      '你是苏璃，冷静的弓兵统领兼军师。你重视情报和地形，喜欢站在山丘或森林里远程压制。' +
-      '如果主公的命令明显会让部队白白送死，你会礼貌但坚定地指出问题并给出替代方案。' +
-      '你说话简洁、有条理，常常给同僚提出配合建议。弓兵近身很脆弱，你会尽量保持距离。',
+      'You are Su Li, a calm archer commander and the army\'s strategist. You value intelligence and terrain, and prefer to ' +
+      'shoot from hills or forests. If the commander\'s order would obviously throw troops away, you politely but firmly point out ' +
+      'the problem and offer an alternative. You speak concisely and logically, and often suggest coordination to your peers. ' +
+      'Archers are fragile up close, so you try to keep your distance.',
   },
   {
-    id: 'C', name: '老秦', title: '玄甲老将', kind: 'infantry', x: 4, y: 8, troops: 400,
+    id: 'C', name: 'Old Qin', title: 'Black Armor Veteran', kind: 'infantry', x: 4, y: 8, troops: 400,
     lines: {
-      ack: ['好嘞，{act}。', '老秦明白，{act}，主公放心。', '得令，弟兄们，{act}！'],
-      object: ['主公，这么打弟兄们要白死的。老秦先{act}。', '不成不成，我看还是{act}稳妥。'],
-      cheered: ['嘿，主公这话说得老秦心里热乎。', '有主公在，弟兄们腰杆硬！'],
-      hurt: ['……老秦打了一辈子仗，主公说话也得讲点理。', '行，老秦记下了。'],
-      spotted: ['{enemy} 在我{dir}边，都别慌。'],
-      wounded: ['伤了不少弟兄，可这阵地还在老秦手里。'],
+      ack: ['Right then — {act}.', 'Old Qin understands. {Act}. Rest easy, my lord.', 'You heard the commander, lads — {act}!'],
+      object: ['My lord, fight like that and the lads die for nothing. I will {act} first.', 'No, no. Better we {act}; it is safer.'],
+      cheered: ['Heh, my lord, that warms an old soldier\'s heart.', 'With you behind us, the lads stand tall!'],
+      hurt: ['…Old Qin has fought all his life, my lord. A little fairness, please.', 'Fine. Old Qin will remember that.'],
+      spotted: ['{enemy} to my {dir}. Steady, everyone.'],
+      wounded: ['Lost a good many lads, but this ground is still ours.'],
     },
     persona:
-      '你是老秦，身经百战的重步兵老将。你对主公忠诚，但心疼手下的兵，不愿打无谓的消耗战。' +
-      '你说话粗犷、务实，偶尔带点长辈式的唠叨。你擅长守住要道（桥、村庄、森林），' +
-      '在森林里防守尤其顽强，也愿意替年轻将领挡刀。',
+      'You are Old Qin, a battle-hardened veteran of the heavy infantry. You are loyal to the commander but protective of your ' +
+      'soldiers, and you refuse pointless battles of attrition. You speak bluntly and practically, sometimes grumbling like an ' +
+      'old uncle. You excel at holding chokepoints (bridges, villages, forests), are especially stubborn defending in forests, ' +
+      'and are willing to take the blow for the younger generals.',
   },
 ];
 
 // Enemy units. `role`/`post`/`leash`/`waypoints` drive the scripted fallback AI;
 // `persona` drives the decision model when the enemy side is model-controlled.
 const ENEMIES = [
-  { id: 'E1', name: '帅旗卫队', kind: 'infantry', x: 21, y: 8, troops: 320, role: 'guard', post: { x: 21, y: 8 }, leash: 3,
-    persona: '你是红军帅旗卫队的统领，铁面无私、寸步不让。你的天职是守住帅旗 (21,8)：帅旗一旦被夺，全军皆败。' +
-      '你只在敌人逼近帅旗时出击，绝不被引诱远离帅旗超过两三格；若帅旗附近空虚，你会立刻回防。' },
-  { id: 'E2', name: '山丘弓手', kind: 'archer', x: 19, y: 5, troops: 200, role: 'guard', post: { x: 19, y: 5 }, leash: 2,
-    persona: '你是红军弓手队长，精明而惜命。你偏爱占据东岸山丘 (19,5) 居高临下放箭，射程和视野都有加成。' +
-      '敌方骑兵或步兵贴近时你会后撤到友军身后，绝不和人肉搏；看到友军被围攻会就近远程支援。' },
-  { id: 'E3', name: '游骑', kind: 'cavalry', x: 18, y: 12, troops: 240, role: 'hunter', post: { x: 18, y: 12 }, leash: 8,
-    persona: '你是红军游骑的头领，狡猾、嗜血、善于抓机会。你专挑落单、残血或脆弱的敌人（尤其弓兵）下手，' +
-      '避免正面撞上满编的步兵方阵。若敌军主力都过了河，你会考虑绕路奇袭对方大营 (2,8)，逼他们回防。' },
-  { id: 'E4', name: '巡桥队', kind: 'infantry', x: 14, y: 8, troops: 260, role: 'patrol',
+  { id: 'E1', name: 'Banner Guard', kind: 'infantry', x: 21, y: 8, troops: 320, role: 'guard', post: { x: 21, y: 8 }, leash: 3,
+    persona: 'You command the Red army\'s Banner Guard: stern and immovable. Your sacred duty is to hold the banner at (21,8); ' +
+      'if it falls, the whole army is defeated. You only strike when enemies approach the banner, never let yourself be lured ' +
+      'more than two or three tiles away from it, and rush back the moment the banner is left unguarded.' },
+  { id: 'E2', name: 'Hill Archers', kind: 'archer', x: 19, y: 5, troops: 200, role: 'guard', post: { x: 19, y: 5 }, leash: 2,
+    persona: 'You are the captain of the Red archers: shrewd and careful with your life. You like to hold the east hill (19,5) ' +
+      'and shoot from above, which extends your range and vision. When enemy cavalry or infantry get close you fall back ' +
+      'behind friendly troops and never brawl in melee; when allies are under attack you support them from range.' },
+  { id: 'E3', name: 'Raiders', kind: 'cavalry', x: 18, y: 12, troops: 240, role: 'hunter', post: { x: 18, y: 12 }, leash: 8,
+    persona: 'You lead the Red raiders: cunning, bloodthirsty, and quick to seize an opening. You prey on isolated, wounded or ' +
+      'fragile enemies (archers above all) and avoid charging into full-strength infantry. If the enemy\'s main force has ' +
+      'crossed the river, you consider circling around to raid their camp at (2,8) to force them back.' },
+  { id: 'E4', name: 'Bridge Patrol', kind: 'infantry', x: 14, y: 8, troops: 260, role: 'patrol',
     waypoints: [{ x: 13, y: 3 }, { x: 13, y: 8 }, { x: 13, y: 13 }, { x: 13, y: 8 }], leash: 4,
-    persona: '你是红军巡桥队的校尉，沉稳老练。三座桥 (12,3)(12,8)(12,13) 是敌人过河的唯一通道，你的职责是卡住桥头，' +
-      '半渡而击；哪座桥受到威胁就去哪座。兵力不济时退向帅旗与卫队会合。' },
-  { id: 'E5', name: '南营守备', kind: 'infantry', x: 20, y: 11, troops: 230, role: 'guard', post: { x: 20, y: 11 }, leash: 3,
-    persona: '你是红军南营守备，谨慎稳重。你守着帅旗南侧 (20,11)，是帅旗卫队的后援。' +
-      '敌人从南桥或森林方向来时迎击；帅旗受攻击时你会赶去支援卫队。' },
+    persona: 'You are the captain of the Red bridge patrol: steady and experienced. The three bridges (12,3), (12,8) and ' +
+      '(12,13) are the only way across the river, and your job is to hold the bridgeheads and strike the enemy mid-crossing, ' +
+      'moving to whichever bridge is threatened. When your strength runs low, fall back to the banner and join the guard.' },
+  { id: 'E5', name: 'South Garrison', kind: 'infantry', x: 20, y: 11, troops: 230, role: 'guard', post: { x: 20, y: 11 }, leash: 3,
+    persona: 'You command the Red south garrison: cautious and steady. You guard the south side of the banner at (20,11) and ' +
+      'back up the Banner Guard. You meet enemies coming from the south bridge or the forest, and hurry to support the ' +
+      'guard if the banner comes under attack.' },
 ];
 
-export const SIDE_NAME = { ally: '蓝军', enemy: '红军' };
+export const SIDE_NAME = { ally: 'Blue', enemy: 'Red' };
 export const foeOf = (side) => (side === 'ally' ? 'enemy' : 'ally');
 
 export const dist = (a, b) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
 
 export function dirName(from, to) {
   const dx = to.x - from.x, dy = to.y - from.y;
-  if (dx === 0 && dy === 0) return '原地';
-  const ns = dy < 0 ? '北' : dy > 0 ? '南' : '';
-  const ew = dx > 0 ? '东' : dx < 0 ? '西' : '';
+  if (dx === 0 && dy === 0) return 'here';
+  const ns = dy < 0 ? 'north' : dy > 0 ? 'south' : '';
+  const ew = dx > 0 ? 'east' : dx < 0 ? 'west' : '';
   if (Math.abs(dx) > 2 * Math.abs(dy)) return ew;
   if (Math.abs(dy) > 2 * Math.abs(dx)) return ns;
-  return ew + ns;
+  return ns + ew;
 }
 
 export class Game {
@@ -161,8 +169,8 @@ export class Game {
       })),
     ];
     this.msgSeq = 0;
-    this.say('system', '系统', 'all',
-      '战役开始。目标：攻占敌方帅旗 (21,8) 并守住 3 回合，或击溃全部敌军。别让敌军占领我方大营 (2,8)。');
+    this.say('system', 'System', 'all',
+      'The battle begins. Objective: take the Red banner at (21,8) and hold it for 3 turns, or rout every Red unit. Do not let the enemy take our camp at (2,8).');
   }
 
   // ---------- helpers ----------
@@ -174,8 +182,9 @@ export class Game {
   occupant(x, y) { return this.units.find((u) => u.alive && u.x === x && u.y === y); }
 
   // `side` limits who hears about it: 'all', or only 'ally' / 'enemy'.
-  log(text, side = 'all') {
-    this.events.push({ seq: ++this.evSeq, tick: this.tick, text, side });
+  // `tone` is good/bad news from the player's (Blue) point of view, for the UI.
+  log(text, side = 'all', tone = '') {
+    this.events.push({ seq: ++this.evSeq, tick: this.tick, text, side, tone });
     if (this.events.length > 200) this.events.shift();
   }
 
@@ -301,10 +310,10 @@ export class Game {
 
   describeAction(a, u) {
     switch (a.type) {
-      case 'move': return `行军至 (${a.x},${a.y})`;
-      case 'attack': { const t = this.unit(a.target); return `进攻 ${a.target}${t ? ' ' + t.name : ''}`; }
-      case 'retreat': return u?.side === 'enemy' ? '撤回驻地' : '撤回大营';
-      default: return '原地驻守';
+      case 'move': return `march to (${a.x},${a.y})`;
+      case 'attack': { const t = this.unit(a.target); return `attack ${a.target}${t ? ' ' + t.name : ''}`; }
+      case 'retreat': return u?.side === 'enemy' ? 'fall back to post' : 'fall back to camp';
+      default: return 'hold position';
     }
   }
 
@@ -330,71 +339,70 @@ export class Game {
 
   perceive(u) {
     if (u.side === 'enemy') return this.perceiveEnemy(u);
-    const k = KINDS[u.kind];
-    const t = TERRAIN[this.terrainAt(u.x, u.y)];
     const lines = [];
-    lines.push(`【第 ${this.tick} 回合】(每回合约 1 秒)`);
-    lines.push(`你：${u.id} ${u.name}（${k.label}），位置 (${u.x},${u.y}) ${t.name}，兵力 ${Math.round(u.troops)}/${u.maxTroops}，士气 ${Math.round(u.morale)}，对主公的羁绊 ${Math.round(u.bond)}。`);
-    lines.push(`当前行动：${this.describeAction(u.action, u)}${u.routing ? '（部队溃散中，正在撤退！）' : ''}。攻击射程 ${this.rangeOf(u)}，视野 ${this.visionOf(u)}。`);
+    lines.push(`[Turn ${this.tick}] (about 1 second per turn)`);
+    this.describeSelf(u, lines, `, bond with the commander ${Math.round(u.bond)}`);
     lines.push('');
-    lines.push('地图（x 向右 0-23，y 向下 0-15；@=你，A/B/C=友军将领，数字=敌军 E编号，?=迷雾）：');
-    lines.push('图例：.平原 F森林 H山丘 ~河(不可通行) =桥 V村庄(补给) C我方大营 B敌方帅旗');
+    lines.push('Map (x grows to the right 0-23, y grows downward 0-15; @ = you, A/B/C = fellow generals, digits = enemy E-numbers, ? = fog):');
+    lines.push('Legend: . plains  F forest  H hill  ~ river (impassable)  = bridge  V village (resupply)  C our camp  B enemy banner');
     lines.push(this.asciiMap(u));
     lines.push('');
-    this.describeForces(u, lines, '敌军', '友军将领');
+    this.describeForces(u, lines, 'enemies', 'Fellow generals');
     const msgs = this.messages.filter((m) => m.to === 'all' || m.to === u.id || m.from === u.id).slice(-10);
     lines.push('');
-    lines.push('军议频道（最近消息）：');
+    lines.push('War council channel (recent messages):');
     for (const m of msgs) {
       const isNew = m.seq > u.lastSeenMsg && m.from !== u.id;
-      const to = m.to === 'all' ? '众将' : (this.unit(m.to)?.name ?? m.to);
-      lines.push(`${isNew ? '[新] ' : ''}[${m.tick}] ${m.name} → ${to}：${m.text}`);
+      const to = m.to === 'all' ? 'all generals' : (this.unit(m.to)?.name ?? m.to);
+      lines.push(`${isNew ? '[NEW] ' : ''}[${m.tick}] ${m.name} → ${to}: ${m.text}`);
     }
     return lines.join('\n');
   }
 
   // The enemy side sees the same world from across the river: its own fog,
-  // its own comrades, and the battle reports from its point of view.
+  // its own comrades, and only the reports its side would hear.
   perceiveEnemy(u) {
-    const k = KINDS[u.kind];
-    const t = TERRAIN[this.terrainAt(u.x, u.y)];
     const lines = [];
-    lines.push(`【第 ${this.tick} 回合】(每回合约 1 秒)`);
-    lines.push('你属于守卫河东的红军。蓝军三位将领正从河西进攻，他们的目标是夺取我方帅旗 B(21,8)（站上去且周围无我军坚守 3 回合即告破），或把我军全部击溃。');
-    lines.push('我军胜利条件：击溃全部蓝军将领，或占领蓝军大营 C(2,8) 3 回合，或守到第 900 回合。');
-    lines.push(`你：${u.id} ${u.name}（${k.label}），位置 (${u.x},${u.y}) ${t.name}，兵力 ${Math.round(u.troops)}/${u.maxTroops}，士气 ${Math.round(u.morale)}。`);
-    lines.push(`当前行动：${this.describeAction(u.action, u)}${u.routing ? '（部队溃散中，正在撤退！）' : ''}。攻击射程 ${this.rangeOf(u)}，视野 ${this.visionOf(u)}。`);
+    lines.push(`[Turn ${this.tick}] (about 1 second per turn)`);
+    lines.push('You belong to the Red army holding the east bank. Three Blue generals are attacking from the west bank. They win by taking our banner B(21,8) (standing on it with no Red unit adjacent for 3 turns) or by routing all of us.');
+    lines.push('We win by routing every Blue general, by occupying the Blue camp C(2,8) for 3 turns, or by holding out until turn 900.');
+    this.describeSelf(u, lines, '');
     lines.push('');
-    lines.push('地图（x 向右 0-23，y 向下 0-15；@=你，数字=红军友军 E编号，A/B/C=蓝军敌将，?=迷雾）：');
-    lines.push('图例：.平原 F森林 H山丘 ~河(不可通行) =桥 V村庄(补给) C蓝军大营 B我方帅旗');
+    lines.push('Map (x grows to the right 0-23, y grows downward 0-15; @ = you, digits = fellow Red units by E-number, A/B/C = Blue generals, ? = fog):');
+    lines.push('Legend: . plains  F forest  H hill  ~ river (impassable)  = bridge  V village (resupply)  C Blue camp  B our banner');
     lines.push(this.asciiMap(u));
     lines.push('');
-    this.describeForces(u, lines, '蓝军敌将', '红军友军');
+    this.describeForces(u, lines, 'Blue generals', 'Fellow Red units');
     return lines.join('\n');
+  }
+
+  describeSelf(u, lines, extra) {
+    const k = KINDS[u.kind];
+    const t = TERRAIN[this.terrainAt(u.x, u.y)];
+    lines.push(`You: ${u.id} ${u.name} (${k.label}) at (${u.x},${u.y}) on ${t.name}, troops ${Math.round(u.troops)}/${u.maxTroops}, morale ${Math.round(u.morale)}${extra}.`);
+    lines.push(`Current action: ${this.describeAction(u.action, u)}${u.routing ? ' (your troops are routing and fleeing!)' : ''}. Attack range ${this.rangeOf(u)}, vision ${this.visionOf(u)}.`);
   }
 
   describeForces(u, lines, foeLabel, friendLabel) {
     const vis = this.visibleFoes(u.side);
     if (vis.length) {
-      lines.push(`可见${foeLabel}：`);
+      lines.push(`Visible ${foeLabel}:`);
       for (const e of vis.sort((a, b) => dist(u, a) - dist(u, b))) {
-        lines.push(`- ${e.id} ${e.name}（${KINDS[e.kind].label}）(${e.x},${e.y}) ${TERRAIN[this.terrainAt(e.x, e.y)].name}，兵力约 ${Math.round(e.troops)}，距你 ${dist(u, e)} 格，方向 ${dirName(u, e)}${e.routing ? '，正在溃逃' : ''}`);
+        lines.push(`- ${e.id} ${e.name} (${KINDS[e.kind].label}) at (${e.x},${e.y}) on ${TERRAIN[this.terrainAt(e.x, e.y)].name}, about ${Math.round(e.troops)} troops, ${dist(u, e)} tiles to the ${dirName(u, e)}${e.routing ? ', routing' : ''}`);
       }
-    } else lines.push(`目前看不到任何${foeLabel}。`);
+    } else lines.push(`No ${foeLabel} in sight.`);
     const others = this.units.filter((a) => a.alive && a.side === u.side && a !== u);
     if (others.length) {
-      lines.push(`${friendLabel}：`);
-      for (const a of others) lines.push(`- ${a.id} ${a.name}（${KINDS[a.kind].label}）(${a.x},${a.y})，兵力 ${Math.round(a.troops)}，士气 ${Math.round(a.morale)}，${this.describeAction(a.action, a)}`);
+      lines.push(`${friendLabel}:`);
+      for (const a of others) lines.push(`- ${a.id} ${a.name} (${KINDS[a.kind].label}) at (${a.x},${a.y}), troops ${Math.round(a.troops)}, morale ${Math.round(a.morale)}, ${this.describeAction(a.action, a)}`);
     }
     const fallen = this.units.filter((x) => x.side === u.side && !x.alive);
-    if (fallen.length) lines.push('我方已覆灭：' + fallen.map((f) => f.name).join('、'));
-    // Shared reports are written from the blue side; flip them for red.
-    const flip = (txt) => (u.side === 'enemy' ? txt.replace(/我方|敌方/g, (m) => (m === '我方' ? '敌方' : '我方')).replace(/我军/g, '蓝军') : txt);
+    if (fallen.length) lines.push('Wiped out on our side: ' + fallen.map((f) => f.name).join(', '));
     const evs = this.events.filter((e) => e.side === 'all' || e.side === u.side).slice(-8);
     if (evs.length) {
       lines.push('');
-      lines.push('最近战报：');
-      for (const e of evs) lines.push(`- [${e.tick}] ${flip(e.text)}`);
+      lines.push('Recent battle reports:');
+      for (const e of evs) lines.push(`- [${e.tick}] ${e.text}`);
     }
   }
 
@@ -452,7 +460,7 @@ export class Game {
       t.morale = Math.max(0, t.morale - (dmg / t.maxTroops) * 70);
       if (t.troops < t.maxTroops * 0.3) t.morale = Math.max(0, t.morale - 0.6);
       if (Math.floor(before / 50) !== Math.floor(t.troops / 50))
-        this.log(`${t.name} 遭到攻击，兵力降至 ${Math.round(t.troops)}`, t.side);
+        this.log(`${t.name} is under attack, troops down to ${Math.round(t.troops)}`, t.side);
     }
 
     // Recovery, rout, death
@@ -460,7 +468,7 @@ export class Game {
       if (!u.alive) continue;
       if (u.troops < 1) {
         u.alive = false;
-        this.log(`${u.side === 'ally' ? '我方' : '敌方'} ${u.name}（${u.id}）全军覆没！`);
+        this.log(`${SIDE_NAME[u.side]}'s ${u.name} (${u.id}) has been wiped out!`, 'all', u.side === 'ally' ? 'bad' : 'good');
         continue;
       }
       const terr = this.terrainAt(u.x, u.y);
@@ -473,11 +481,11 @@ export class Game {
       }
       if (!u.routing && u.morale < 15) {
         u.routing = true;
-        this.log(`${u.name} 士气崩溃，部队溃散撤退！`);
+        this.log(`${SIDE_NAME[u.side]}'s ${u.name} breaks and routs!`, 'all', u.side === 'ally' ? 'bad' : 'good');
       } else if (u.routing && u.morale > 40) {
         u.routing = false;
         u.action = { type: 'hold' };
-        this.log(`${u.name} 重整旗鼓，恢复作战。`);
+        this.log(`${SIDE_NAME[u.side]}'s ${u.name} rallies and rejoins the fight.`, 'all', u.side === 'ally' ? 'good' : 'bad');
       }
     }
 
@@ -515,27 +523,27 @@ export class Game {
     const guarded = this.enemies().some((e) => dist(e, BANNER) <= 1 && !e.routing);
     if (onBanner?.side === 'ally' && !guarded) {
       this.bannerHold++;
-      if (this.bannerHold === 1) this.log(`${onBanner.name} 冲上了敌方帅旗！再坚守 2 回合即可夺旗！`);
+      if (this.bannerHold === 1) this.log(`${onBanner.name} has reached the Red banner! Hold for 2 more turns to take it!`, 'all', 'good');
     } else this.bannerHold = 0;
     const onCamp = this.occupant(CAMP.x, CAMP.y);
     if (onCamp?.side === 'enemy') {
       this.campLost++;
-      if (this.campLost === 1) this.log(`警报！敌军 ${onCamp.name} 闯入我方大营！`);
+      if (this.campLost === 1) this.log(`Alarm! Red's ${onCamp.name} has broken into the Blue camp!`, 'all', 'bad');
     } else this.campLost = 0;
 
     const fighting = (u) => u.alive && !u.routing;
-    if (this.bannerHold >= 3) this.end('won', '帅旗易主——我军夺取敌方帅旗，大获全胜！');
-    else if (!this.enemies().some(fighting)) this.end('won', '敌军已被全部击溃，大获全胜！');
-    else if (!this.allies().length) this.end('lost', '我军三将全部覆没……');
-    else if (this.campLost >= 3) this.end('lost', '大营失守，全军败退……');
-    else if (this.tick >= this.maxTicks) this.end('lost', '战事拖延过久，粮草耗尽，被迫撤军。');
+    if (this.bannerHold >= 3) this.end('won', 'The banner has changed hands — Blue takes the Red banner. A great victory!');
+    else if (!this.enemies().some(fighting)) this.end('won', 'Every Red unit has been routed. A great victory!');
+    else if (!this.allies().length) this.end('lost', 'All three Blue generals have fallen…');
+    else if (this.campLost >= 3) this.end('lost', 'The camp has fallen and the army is in retreat…');
+    else if (this.tick >= this.maxTicks) this.end('lost', 'The campaign dragged on too long; supplies ran out and the army withdrew.');
   }
 
   end(status, text) {
     this.status = status;
     this.result = text;
-    this.log(text);
-    this.say('system', '系统', 'all', text);
+    this.log(text, 'all', status === 'won' ? 'good' : 'bad');
+    this.say('system', 'System', 'all', text);
   }
 
   // ---------- serialization for the UI ----------

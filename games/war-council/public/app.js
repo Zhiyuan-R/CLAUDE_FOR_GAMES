@@ -4,9 +4,9 @@
 
 const CELL = 40;
 const PAD = 24; // margin for coordinate labels
-const KIND_CHAR = { cavalry: '骑', infantry: '步', archer: '弓' };
-const KIND_LABEL = { cavalry: '骑兵', infantry: '步兵', archer: '弓兵' };
-const SRC = { llm: '决策模型', heuristic: '规则后备', error: '调用失败' };
+const KIND_ICON = { cavalry: '♞', infantry: '⛨', archer: '➶' };
+const KIND_LABEL = { cavalry: 'Cavalry', infantry: 'Infantry', archer: 'Archers' };
+const SRC = { llm: 'Decision model', heuristic: 'Rule fallback', error: 'Call failed' };
 const SIDE = {
   ally: { light: '#7cc0f0', mid: '#3d84bd', dark: '#1d4b74' },
   enemy: { light: '#f08a74', mid: '#c4402e', dark: '#701c13' },
@@ -29,7 +29,9 @@ const flashes = new Map(); // unit id -> time
 let effects = []; // floating texts
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const glyphOf = (u) => (u.name?.startsWith('老') ? u.name[1] : u.name?.[0] ?? u.id);
+const glyphOf = (u) => (u.name?.startsWith('Old ') ? u.name[4] : u.name?.[0] ?? u.id);
+const DISPLAY = '"Cinzel", "Trajan Pro", Georgia, serif';
+const BODY = '"Spectral", Georgia, serif';
 
 // ---------- data ----------
 const es = new EventSource('/api/stream');
@@ -57,7 +59,7 @@ function ingest(next) {
     }
     const before = lastTroops.get(u.id);
     if (before !== undefined && u.troops < before) {
-      effects.push({ id: u.id, text: u.alive ? `-${before - u.troops}` : '溃灭', t0: now, side: u.side, big: !u.alive });
+      effects.push({ id: u.id, text: u.alive ? `-${before - u.troops}` : 'Routed', t0: now, side: u.side, big: !u.alive });
       flashes.set(u.id, now);
     }
     lastTroops.set(u.id, u.troops);
@@ -112,7 +114,7 @@ function paintTerrain() {
   g.fillStyle = '#1b150d';
   g.fillRect(0, 0, LW(), LH());
   g.fillStyle = 'rgba(232, 214, 176, .55)';
-  g.font = '11px "Noto Serif SC", serif';
+  g.font = `11px ${BODY}`;
   g.textAlign = 'center'; g.textBaseline = 'middle';
   for (let x = 0; x < W; x++) g.fillText(x, PAD + x * CELL + CELL / 2, PAD / 2 + 1);
   for (let y = 0; y < H; y++) g.fillText(y, PAD / 2, PAD + y * CELL + CELL / 2);
@@ -345,24 +347,24 @@ function drawUnits(now) {
       ctx.fillStyle = `rgba(255, 240, 220, ${0.6 * (1 - (now - fl) / 350)})`;
       ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
     }
-    // glyph: generals show their name, enemy units their troop type
+    // glyph: generals show their initial, enemy units their E-number
     ctx.fillStyle = '#fbf1da';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     if (u.side === 'ally') {
-      ctx.font = '19px "Ma Shan Zheng", "KaiTi", serif';
-      ctx.fillText(glyphOf(u), x, y + 1);
+      ctx.font = `700 16px ${DISPLAY}`;
+      ctx.fillText(glyphOf(u), x, y + 1.5);
     } else {
-      ctx.font = '700 13px "Noto Serif SC", serif';
-      ctx.fillText(KIND_CHAR[u.kind], x, y + 1);
+      ctx.font = `700 11px ${DISPLAY}`;
+      ctx.fillText(u.id, x, y + 1);
     }
-    // badge: troop type for generals, E-number for enemies
+    // badge: troop type icon
     const bx = x + r * 0.78, by = y - r * 0.78;
     ctx.fillStyle = '#16110b';
     ctx.beginPath(); ctx.arc(bx, by, 6.5, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = col.light; ctx.lineWidth = 1;
     ctx.stroke();
-    ctx.fillStyle = '#f2e6c9'; ctx.font = '700 8.5px "Noto Serif SC", serif';
-    ctx.fillText(u.side === 'ally' ? KIND_CHAR[u.kind] : u.id.slice(1), bx, by + 0.5);
+    ctx.fillStyle = '#f2e6c9'; ctx.font = `8.5px ${BODY}`;
+    ctx.fillText(KIND_ICON[u.kind], bx, by + 0.5);
     // routing
     if (u.routing) {
       ctx.strokeStyle = '#fff3d6'; ctx.lineWidth = 1.5;
@@ -388,7 +390,7 @@ function drawEffects(now) {
     const [x, y] = cpos(animPos(e.id, now));
     const t = (now - e.t0) / 1100;
     ctx.globalAlpha = 1 - t;
-    ctx.font = e.big ? '700 16px "Noto Serif SC", serif' : '700 12px "Noto Serif SC", serif';
+    ctx.font = e.big ? `700 15px ${DISPLAY}` : `700 12px ${BODY}`;
     ctx.textAlign = 'center';
     ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.7)';
     const yy = y - 22 - t * 18;
@@ -402,13 +404,13 @@ function drawEffects(now) {
 function drawSpeech(now) {
   const latest = new Map();
   for (const m of state.messages) if (m.from !== 'player' && m.from !== 'system' && state.tick - m.tick <= 4) latest.set(m.from, m);
-  ctx.font = '12px "Noto Serif SC", serif';
+  ctx.font = `12px ${BODY}`;
   ctx.textBaseline = 'middle';
   for (const [id, m] of latest) {
     const u = state.units.find((x) => x.id === id);
     if (!u?.alive) continue;
     const [x, y] = cpos(animPos(id, now));
-    const text = m.text.length > 18 ? m.text.slice(0, 18) + '…' : m.text;
+    const text = m.text.length > 34 ? m.text.slice(0, 33).trimEnd() + '…' : m.text;
     const w = Math.min(ctx.measureText(text).width + 16, 260);
     const bx = Math.max(2, Math.min(x - w / 2, init.W * CELL - w - 2));
     const by = Math.max(2, y - 48);
@@ -445,11 +447,11 @@ canvas.addEventListener('mousemove', (ev) => {
   const box = canvas.parentElement.getBoundingClientRect();
   tooltip.hidden = false;
   tooltip.innerHTML = `
-    <b>${esc(u.id)} · ${esc(u.name)}</b> <span style="color:${u.side === 'ally' ? 'var(--blue)' : 'var(--red)'}">${u.side === 'ally' ? '蓝军' : '红军'}${KIND_LABEL[u.kind]}</span>
-    <div class="row"><span>兵力</span><span>${u.troops} / ${u.maxTroops}</span></div>
-    <div class="row"><span>士气</span><span>${u.morale}</span></div>
-    ${u.bond !== undefined ? `<div class="row"><span>羁绊</span><span>${u.bond}</span></div>` : ''}
-    <div class="row"><span>行动</span><span>${u.routing ? '溃散' : esc(describe(u.action))}</span></div>`;
+    <b>${esc(u.id)} · ${esc(u.name)}</b> <span style="color:${u.side === 'ally' ? 'var(--blue)' : 'var(--red)'}">${u.side === 'ally' ? 'Blue' : 'Red'} ${KIND_LABEL[u.kind].toLowerCase()}</span>
+    <div class="row"><span>Troops</span><span>${u.troops} / ${u.maxTroops}</span></div>
+    <div class="row"><span>Morale</span><span>${u.morale}</span></div>
+    ${u.bond !== undefined ? `<div class="row"><span>Bond</span><span>${u.bond}</span></div>` : ''}
+    <div class="row"><span>Action</span><span>${u.routing ? 'Routing' : esc(describe(u.action))}</span></div>`;
   tooltip.style.left = Math.min(ev.clientX - box.left + 16, box.width - 190) + 'px';
   tooltip.style.top = ev.clientY - box.top + 14 + 'px';
 });
@@ -470,15 +472,15 @@ function setRecipient(id) {
   to = id;
   renderRecipients();
   if (state) renderGenerals(true);
-  $('#text').placeholder = id === 'all' ? '向众将下令，也可以鼓舞或责备他们……' : `对${nameOf(id)}说……`;
+  $('#text').placeholder = id === 'all' ? 'Order, rally or scold your generals…' : `Speak to ${nameOf(id)}…`;
 }
 
-const nameOf = (id) => (id === 'all' ? '众将' : id === 'player' ? '主公' : state?.units.find((u) => u.id === id)?.name ?? id);
+const nameOf = (id) => (id === 'all' ? 'All generals' : id === 'player' ? 'Commander' : state?.units.find((u) => u.id === id)?.name ?? id);
 
 function renderRecipients() {
   if (!init) return;
   const alive = (id) => !state || state.units.find((u) => u.id === id)?.alive !== false;
-  const html = [{ id: 'all', name: '众将' }, ...init.generals]
+  const html = [{ id: 'all', name: 'All generals' }, ...init.generals]
     .map((g) => `<button type="button" class="rcpt ${to === g.id ? 'on' : ''}" data-id="${g.id}" ${alive(g.id) ? '' : 'disabled'}>${esc(g.name)}</button>`)
     .join('');
   if ($('#recipients').innerHTML !== html) $('#recipients').innerHTML = html;
@@ -501,7 +503,7 @@ $('#order').addEventListener('submit', async (ev) => {
   await fetch('/api/order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to, text }) });
 });
 $('#pause').onclick = () => fetch('/api/pause', { method: 'POST' });
-$('#reset').onclick = () => { if (confirm('重新开始这场战役？')) restart(); };
+$('#reset').onclick = () => { if (confirm('Restart this battle?')) restart(); };
 $('#again').onclick = () => restart();
 function restart() {
   fetch('/api/reset', { method: 'POST' });
@@ -521,11 +523,11 @@ function showTab(name) {
 // ---------- panels ----------
 function describe(a) {
   if (!a) return '';
-  if (a.type === 'move') return `行军至 (${a.x},${a.y})`;
-  if (a.type === 'attack') return `进攻 ${a.target} ${nameOf(a.target)}`;
-  if (a.type === 'retreat') return '撤退';
-  if (a.type === 'unknown') return '？';
-  return '原地驻守';
+  if (a.type === 'move') return `Marching to (${a.x},${a.y})`;
+  if (a.type === 'attack') return `Attacking ${a.target} ${nameOf(a.target)}`;
+  if (a.type === 'retreat') return 'Falling back';
+  if (a.type === 'unknown') return '?';
+  return 'Holding position';
 }
 const ACT_ICON = { move: '➜', attack: '⚔', retreat: '↩', hold: '◼' };
 
@@ -539,17 +541,17 @@ function renderPanels() {
 }
 
 function renderTop() {
-  $('#tick').textContent = `第 ${state.tick} / ${state.maxTicks} 回合${state.paused ? ' · 暂停' : ''}`;
+  $('#tick').textContent = `Turn ${state.tick} / ${state.maxTicks}${state.paused ? ' · Paused' : ''}`;
   $('#tickbar').style.width = `${(state.tick / state.maxTicks) * 100}%`;
   [...$('#hold').children].forEach((i, k) => i.classList.toggle('on', k < state.bannerHold));
   $('#pause').textContent = state.paused ? '▶' : '❚❚';
   const b = state.brain;
   const blue = b.usingLLM ? (b.lastError ? 'warn' : 'ok') : 'warn';
   const chips = [
-    `<span class="chip ${blue}" title="${esc(b.lastError || b.baseUrl)}"><i class="dot"></i>蓝军 · ${b.usingLLM ? '决策模型' : '规则后备'}</span>`,
-    `<span class="chip ${b.enemies === 'model' ? blue : 'warn'}"><i class="dot"></i>红军 · ${b.enemies === 'model' ? '决策模型' : '脚本 AI'}</span>`,
+    `<span class="chip ${blue}" title="${esc(b.lastError || b.baseUrl)}"><i class="dot"></i>Blue · ${b.usingLLM ? 'Decision model' : 'Rule fallback'}</span>`,
+    `<span class="chip ${b.enemies === 'model' ? blue : 'warn'}"><i class="dot"></i>Red · ${b.enemies === 'model' ? 'Decision model' : 'Scripted AI'}</span>`,
   ];
-  if (b.usingLLM) chips.push(`<span class="chip" title="调用 ${b.llmCalls} 次，失败 ${b.llmFailures} 次">${esc(b.model)}${b.images ? ' · 看图' : ''}${b.latencyMs ? ` · ${b.latencyMs}ms` : ''}</span>`);
+  if (b.usingLLM) chips.push(`<span class="chip" title="${b.llmCalls} calls, ${b.llmFailures} failed">${esc(b.model)}${b.images ? ' · vision' : ''}${b.latencyMs ? ` · ${b.latencyMs}ms` : ''}</span>`);
   const html = chips.join('');
   if ($('#brain').innerHTML !== html) $('#brain').innerHTML = html;
 }
@@ -579,21 +581,21 @@ function renderGenerals(force) {
       <div class="gen-head">
         <span class="gen-name">${esc(u.name)}</span><span class="gen-title">${esc(u.title)} · ${KIND_LABEL[u.kind]}</span>
         <span class="spacer"></span>
-        ${u.alive ? `<a class="view" href="/api/view/${u.id}.png" target="_blank" title="模型此刻看到的战场图">模型视角</a>` : ''}
+        ${u.alive ? `<a class="view" href="/api/view/${u.id}.png" target="_blank" title="The battlefield image the model sees right now">Model view</a>` : ''}
         ${u.brainSource ? `<span class="tag ${u.brainSource}">${SRC[u.brainSource] || u.brainSource}</span>` : ''}
       </div>
       <div class="stats">
-        ${stat('兵力', u.troops, u.maxTroops, '#7fd39a')}
-        ${stat('士气', u.morale, 100, '#e8b14a')}
-        ${stat('羁绊', u.bond, 100, '#b98ad8')}
+        ${stat('Troops', u.troops, u.maxTroops, '#7fd39a')}
+        ${stat('Morale', u.morale, 100, '#e8b14a')}
+        ${stat('Bond', u.bond, 100, '#b98ad8')}
       </div>
       <div class="doing"><span class="ico">${u.alive ? (u.routing ? '!' : ACT_ICON[u.action.type] || '·') : '✕'}</span>
-        ${!u.alive ? '全军覆没' : u.routing ? '溃散撤退中' : esc(describe(u.action))} <span style="color:var(--muted)">· (${u.x},${u.y})</span></div>
+        ${!u.alive ? 'Wiped out' : u.routing ? 'Routing!' : esc(describe(u.action))} <span style="color:var(--muted)">· (${u.x},${u.y})</span></div>
       ${top.length ? `
       <div class="mind">
         <div class="seg">${top.slice(0, 3).map((o, i) => `<i class="s${i}" style="width:${Math.max(1, Math.round(o.p * 100))}%"></i>`).join('')}</div>
         <div class="seglegend">${top.slice(0, 3).map((o, i) => `<span><i class="s${i}"></i>${esc(o.label)} ${Math.round(o.p * 100)}%</span>`).join('')}
-          ${u.obey != null ? `<span class="obey">服从 ${Math.round(u.obey * 100)}%</span>` : ''}</div>
+          ${u.obey != null ? `<span class="obey">Obey ${Math.round(u.obey * 100)}%</span>` : ''}</div>
       </div>` : u.thought ? `<div class="mind"><div class="seglegend"><span>${esc(u.thought)}</span></div></div>` : ''}
     </div>`;
   }).join('');
@@ -612,7 +614,7 @@ function renderChat() {
     if (m.from === 'system') return `<div class="msg system"><div class="text">${esc(m.text)}</div></div>`;
     const player = m.from === 'player';
     return `<div class="msg ${player ? 'player' : ''}">
-      <div class="avatar">${player ? '主' : esc(glyphOf({ name: m.name }))}</div>
+      <div class="avatar">${player ? '★' : esc(glyphOf({ name: m.name }))}</div>
       <div class="bubble"><div class="meta"><b>${esc(m.name)}</b>${m.to !== 'all' ? `→ ${esc(nameOf(m.to))} ` : ''}· ${m.tick}
         ${m.source && m.source !== 'llm' ? `<span class="src">${SRC[m.source]}</span>` : ''}</div>
       <div class="text">${esc(m.text)}</div></div></div>`;
@@ -627,8 +629,7 @@ function renderEvents() {
   if (last === lastEvSeq) return;
   lastEvSeq = last;
   $('#events').innerHTML = evs.slice().reverse().map((e) => {
-    const cls = /^我方|大营|我军三将|闯入|溃散/.test(e.text) ? 'bad' : /^敌方|大获全胜|冲上|重整/.test(e.text) ? 'good' : '';
-    return `<div class="ev ${cls}"><span class="t">${e.tick}</span><span>${esc(e.text)}</span></div>`;
+    return `<div class="ev ${e.tone || ''}"><span class="t">${e.tick}</span><span>${esc(e.text)}</span></div>`;
   }).join('');
 }
 
@@ -637,9 +638,9 @@ function renderReview() {
   $('#review-tab').hidden = !over;
   if (!over) return;
   const reds = state.units.filter((u) => u.side === 'enemy');
-  $('#review').innerHTML = `<p class="rv t">战役结束，红军的部署与决策公开如下：</p>` + reds.map((u) => `
-    <div class="rv"><b>${esc(u.id)} ${esc(u.name)}</b>（${KIND_LABEL[u.kind]}）${u.alive ? `残兵 ${u.troops}` : '已覆灭'} · ${u.brainSource ? SRC[u.brainSource] : '脚本'}<br />
-    <span class="t">最后决策：</span>${esc(describe(u.action))}${u.thought ? `<br /><span class="t">${esc(u.thought)}</span>` : ''}</div>`).join('');
+  $('#review').innerHTML = `<p class="rv t">The battle is over. Here is how the Red army was deployed and what it decided:</p>` + reds.map((u) => `
+    <div class="rv"><b>${esc(u.id)} ${esc(u.name)}</b> (${KIND_LABEL[u.kind].toLowerCase()}) ${u.alive ? `${u.troops} troops left` : 'wiped out'} · ${u.brainSource ? SRC[u.brainSource] : 'Scripted'}<br />
+    <span class="t">Last decision: </span>${esc(describe(u.action))}${u.thought ? `<br /><span class="t">${esc(u.thought)}</span>` : ''}</div>`).join('');
 }
 
 function renderOverlay() {
@@ -647,7 +648,7 @@ function renderOverlay() {
   $('#overlay').hidden = !over;
   if (!over) return;
   const v = $('#verdict');
-  v.textContent = state.status === 'won' ? '大捷' : '败北';
+  v.textContent = state.status === 'won' ? 'Victory' : 'Defeat';
   v.className = 'verdict ' + state.status;
   $('#verdict-text').textContent = state.result;
 }

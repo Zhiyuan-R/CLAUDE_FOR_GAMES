@@ -32,24 +32,26 @@ export function brainConfig(env = process.env) {
 }
 
 export const LANDMARKS = [
-  { key: 'north_bridge', name: '北桥', x: 12, y: 3 },
-  { key: 'mid_bridge', name: '中桥', x: 12, y: 8 },
-  { key: 'south_bridge', name: '南桥', x: 12, y: 13 },
-  { key: 'west_hill', name: '西岸山丘', x: 9, y: 6 },
-  { key: 'southwest_hill', name: '西南山丘', x: 4, y: 12 },
-  { key: 'west_village', name: '西岸村庄(补给)', x: 6, y: 8 },
-  { key: 'east_village', name: '东岸村庄(补给)', x: 16, y: 3 },
-  { key: 'east_forest', name: '东岸森林', x: 16, y: 10 },
-  { key: 'east_hill', name: '东岸山丘', x: 19, y: 5 },
-  { key: 'banner', name: '敌方帅旗', enemyName: '我方帅旗（回防）', x: BANNER.x, y: BANNER.y },
-  { key: 'camp', name: '我方大营', enemyName: '蓝军大营（奇袭）', x: CAMP.x, y: CAMP.y, enemyOnly: true },
+  { key: 'north_bridge', name: 'north bridge', x: 12, y: 3 },
+  { key: 'mid_bridge', name: 'middle bridge', x: 12, y: 8 },
+  { key: 'south_bridge', name: 'south bridge', x: 12, y: 13 },
+  { key: 'west_hill', name: 'west hill', x: 9, y: 6 },
+  { key: 'southwest_hill', name: 'southwest hill', x: 4, y: 12 },
+  { key: 'west_village', name: 'west village', note: 'resupply', x: 6, y: 8 },
+  { key: 'east_village', name: 'east village', note: 'resupply', x: 16, y: 3 },
+  { key: 'east_forest', name: 'east forest', x: 16, y: 10 },
+  { key: 'east_hill', name: 'east hill', x: 19, y: 5 },
+  { key: 'banner', name: 'enemy banner', enemyName: 'our banner', enemyNote: 'fall back to defend it', x: BANNER.x, y: BANNER.y },
+  { key: 'camp', name: 'our camp', enemyName: 'Blue camp', enemyNote: 'raid it', x: CAMP.x, y: CAMP.y, enemyOnly: true },
 ];
+
+const COORD = /\(?\s*(\d{1,2})\s*,\s*(\d{1,2})\s*\)?/g;
 
 // Coordinates the commander mentioned recently to this general.
 function orderPoints(game, u) {
   const pts = [];
   const msgs = game.messages.filter((m) => m.from === 'player' && (m.to === 'all' || m.to === u.id)).slice(-3).reverse();
-  for (const m of msgs) for (const c of m.text.matchAll(/\(?\s*(\d{1,2})\s*[,，]\s*(\d{1,2})\s*\)?/g)) {
+  for (const m of msgs) for (const c of m.text.matchAll(COORD)) {
     const x = +c[1], y = +c[2];
     if (x < 24 && y < 16 && game.passable(x, y) && !pts.some((p) => p.x === x && p.y === y)) pts.push({ x, y });
     if (pts.length >= 4) return pts;
@@ -57,31 +59,35 @@ function orderPoints(game, u) {
   return pts;
 }
 
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
 // Builds the concrete options for the action question, each mapped to an engine action.
 export function actionOptions(game, u) {
   const red = u.side === 'enemy';
   const opts = [];
   const add = (key, desc, action, label) => opts.push({ key, desc, action, label });
-  add('continue', `继续当前行动：${game.describeAction(u.action, u)}`, null, '继续');
+  add('continue', `Keep doing the current action: ${game.describeAction(u.action, u)}`, null, 'Continue');
   for (const e of game.visibleFoes(u.side).sort((a, b) => dist(u, a) - dist(u, b)))
-    add(`attack_${e.id}`, `进攻 ${e.id} ${e.name}（${KINDS[e.kind].label}，兵力约 ${Math.round(e.troops)}，距 ${dist(u, e)} 格，在${dirName(u, e)}方）`,
-      { type: 'attack', target: e.id }, `攻${e.id}`);
+    add(`attack_${e.id}`, `Attack ${e.id} ${e.name} (${KINDS[e.kind].label}, about ${Math.round(e.troops)} troops, ${dist(u, e)} tiles to the ${dirName(u, e)})`,
+      { type: 'attack', target: e.id }, `Attack ${e.id}`);
   const points = red ? [] : orderPoints(game, u);
   const landmarkAt = (p) => LANDMARKS.find((l) => l.x === p.x && l.y === p.y);
   points.forEach((p, i) => {
     const l = landmarkAt(p);
-    add(`order_point_${i + 1}`, `前往主公命令中提到的坐标 (${p.x},${p.y})${l ? '，即' + l.name : ''}`, { type: 'move', x: p.x, y: p.y }, l?.name ?? `(${p.x},${p.y})`);
+    add(`order_point_${i + 1}`, `Go to (${p.x},${p.y}), the position named in the commander's order${l ? ` (the ${l.name})` : ''}`,
+      { type: 'move', x: p.x, y: p.y }, l ? cap(l.name) : `(${p.x},${p.y})`);
   });
   for (const l of LANDMARKS) {
     if (dist(u, l) === 0 || (l.enemyOnly && !red) || points.some((p) => p.x === l.x && p.y === l.y)) continue;
     const name = red ? l.enemyName ?? l.name : l.name;
-    add(`go_${l.key}`, `行军至${name} (${l.x},${l.y})，距 ${dist(u, l)} 格`, { type: 'move', x: l.x, y: l.y }, name.replace(/（.*）/, ''));
+    const note = red ? l.enemyNote ?? l.note : l.note;
+    add(`go_${l.key}`, `March to the ${name} at (${l.x},${l.y})${note ? `, ${note}` : ''}, ${dist(u, l)} tiles away`, { type: 'move', x: l.x, y: l.y }, cap(name));
   }
   for (const a of game.units) if (a.alive && a.side === u.side && a !== u)
-    add(`support_${a.id}`, `前去支援 ${a.id} ${a.name}（当前在 (${a.x},${a.y})）`, { type: 'move', x: a.x, y: a.y }, `援${a.name}`);
-  add('hold', '原地驻守，攻击进入射程的敌人', { type: 'hold' }, '驻守');
+    add(`support_${a.id}`, `Go support ${a.id} ${a.name} (currently at (${a.x},${a.y}))`, { type: 'move', x: a.x, y: a.y }, `Support ${a.name}`);
+  add('hold', 'Hold position and attack enemies that come into range', { type: 'hold' }, 'Hold');
   const home = red ? (u.post ?? BANNER) : CAMP;
-  add('retreat', red ? `撤回驻地 (${home.x},${home.y}) 重整` : '撤回我方大营休整补给', { type: 'retreat' }, '撤退');
+  add('retreat', red ? `Fall back to your post at (${home.x},${home.y}) and regroup` : 'Fall back to our camp to rest and resupply', { type: 'retreat' }, 'Retreat');
   return opts;
 }
 
@@ -89,19 +95,22 @@ function newOrders(game, u) {
   return game.messages.filter((m) => m.from === 'player' && m.seq > u.lastSeenMsg && (m.to === 'all' || m.to === u.id));
 }
 
-const MAP_LEGEND = '蓝色圆点为蓝军将领（字母 A/B/C），红色圆点为红军部队（数字为 E 编号），黄色外圈的是你本人；' +
-  '暗色格为你方视野外的战争迷雾，深绿为森林，土黄为山丘，蓝色竖带为河流（只能从桥通过），左侧蓝格为蓝军大营，右侧红格为红军帅旗。坐标标在上方和左侧。';
+const MAP_LEGEND = 'Blue discs are the Blue generals (letters A/B/C), red discs are Red units (digits are E-numbers), and the disc with ' +
+  'a yellow ring is you. Darkened tiles are fog of war outside your side\'s vision; dark green is forest, tan is hills, the blue vertical ' +
+  'band is the river (crossable only at bridges), the blue tile on the left is the Blue camp and the red tile on the right is the Red ' +
+  'banner. Coordinates are labeled along the top and left edges.';
 
 function buildEnemyRequest(game, u, cfg) {
   const options = actionOptions(game, u);
   const body = {
     model: cfg.model,
-    state: `以下是红军部队 ${u.id}「${u.name}」统领的人设：\n${u.persona}\n\n附图是战场俯视图：${MAP_LEGEND}\n\n${game.perceive(u)}`,
+    state: `Persona of the commander of Red unit ${u.id} "${u.name}":\n${u.persona}\n\nThe attached image is a top-down view of the battlefield. ${MAP_LEGEND}\n\n${game.perceive(u)}`,
     questions: {
       action: {
         type: 'choice',
-        instructions: `${u.name}接下来会怎么做？请代入其性格与职责，结合图中和文字描述的战场形势（地形、敌我兵力、兵种克制、射程、` +
-          '帅旗与大营的安危、友军的位置）做出最合理的战术判断。',
+        instructions: `What will ${u.name} do next? Stay true to its persona and duty, and make the soundest tactical call given the ` +
+          'battlefield shown in the image and described in the text (terrain, troop strength on both sides, unit counters, ranges, ' +
+          'the safety of the banner and the camp, and where friendly units are).',
         criteria: Object.fromEntries(options.map((o) => [o.key, o.desc])),
       },
     },
@@ -118,34 +127,36 @@ export function buildRequest(game, u, cfg) {
   const questions = {
     action: {
       type: 'choice',
-      instructions: `${name}接下来会怎么做？请完全代入${name}的性格、士气和对主公的羁绊，结合主公的最新命令（标记 [新] 的消息）、` +
-        `图中和文字描述的战场形势（地形、敌我兵力、兵种克制、射程）做出判断。主公的命令通常会被执行，除非它明显违背${name}的性格或会让部队白白送死。`,
+      instructions: `What will ${name} do next? Fully inhabit ${name}'s personality, morale and bond with the commander, and weigh the ` +
+        'commander\'s latest orders (messages marked [NEW]) and the battlefield shown in the image and described in the text (terrain, ' +
+        `troop strength, unit counters, ranges). The commander's orders are usually carried out, unless they clearly go against ${name}'s ` +
+        'character or would throw the troops away for nothing.',
       criteria: Object.fromEntries(options.map((o) => [o.key, o.desc])),
     },
   };
   if (fresh.length) {
-    const said = fresh.map((m) => `「${m.text}」`).join(' ');
+    const said = fresh.map((m) => `"${m.text}"`).join(' ');
+    const scale = ['Drops sharply', 'Drops slightly', 'About the same', 'Rises slightly', 'Rises sharply'];
     questions.obey = {
       type: 'noul',
-      instructions: `主公刚刚说：${said}。${name}会照主公的意思去做吗？`,
-      criteria: { true: `${name}领命执行`, false: `${name}心有异议，会拒绝或变通` },
+      instructions: `The commander just said: ${said}. Will ${name} do what the commander wants?`,
+      criteria: { true: `${name} accepts the order and carries it out`, false: `${name} has objections and will refuse or improvise` },
     };
     questions.morale = {
       type: 'score',
-      instructions: `主公刚刚说：${said}。这番话让${name}的士气（斗志）如何变化？考虑${name}的性格和语气、措辞带来的情绪。`,
-      criteria: ['大幅下降', '略微下降', '基本不变', '略微上升', '大幅上升'],
+      instructions: `The commander just said: ${said}. How does this change ${name}'s morale (fighting spirit)? Consider ${name}'s personality and the emotion carried by the tone and wording.`,
+      criteria: scale,
     };
     questions.bond = {
       type: 'score',
-      instructions: `主公刚刚说：${said}。这番话让${name}对主公的信任与亲近（羁绊）如何变化？`,
-      criteria: ['大幅下降', '略微下降', '基本不变', '略微上升', '大幅上升'],
+      instructions: `The commander just said: ${said}. How does this change ${name}'s trust and closeness toward the commander (bond)?`,
+      criteria: scale,
     };
   }
   const body = {
     model: cfg.model,
-    state: `以下是将领${name}的人设（文中的“你”即${name}）：\n${u.persona}\n\n` +
-      `附图是战场俯视图：蓝色圆点为我方将领（字母 A/B/C，黄色外圈的是${name}本人），红色圆点为敌军（数字为 E 编号），` +
-      `暗色格为战争迷雾，深绿为森林，土黄为山丘，蓝色竖带为河流（只能从桥通过），左侧蓝格为我方大营，右侧红格为敌方帅旗。坐标标在上方和左侧。\n\n` +
+    state: `Persona of the general ${name} ("you" below means ${name}):\n${u.persona}\n\n` +
+      `The attached image is a top-down view of the battlefield. ${MAP_LEGEND}\n\n` +
       game.perceive(u),
     questions,
   };
@@ -175,6 +186,7 @@ export async function callDecisions(cfg, body, fetchImpl = fetch) {
 
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const scoreToDelta = (s) => (s && Number.isFinite(s.score) ? Math.round((s.score - 2) * 2.5) : 0);
+const fill = (line, act) => line.replace('{Act}', cap(act)).replace('{act}', act);
 
 // Turns the model's answers into a decision the engine can apply.
 export function interpret(game, u, answers, options, fresh) {
@@ -193,23 +205,26 @@ export function interpret(game, u, answers, options, fresh) {
     const lines = u.lines;
     // Only object out loud when the general actually does something other than what was asked.
     const objects = obey < 0.5 && !followsOrder(chosen, fresh);
-    let say = (objects ? pick(lines.object) : pick(lines.ack)).replace('{act}', act);
+    let say = fill(objects ? pick(lines.object) : pick(lines.ack), act);
     if (morale >= 3 || bond >= 3) say = pick(lines.cheered) + ' ' + say;
     else if (morale <= -3 || bond <= -3) say = pick(lines.hurt) + ' ' + say;
     d.say = say;
-    d.thought += ` · 服从 ${Math.round(obey * 100)}%`;
+    d.thought += ` · obey ${Math.round(obey * 100)}%`;
     d.obey = Math.round(obey * 100) / 100;
   }
   return d;
 }
+
+const RETREAT_WORDS = /\b(retreat|fall back|withdraw|pull back)\b/i;
+const HOLD_WORDS = /\b(hold|stay|wait|defend|guard|stand fast|don't move)\b/i;
 
 // Whether the chosen option is what the commander's new message asked for.
 function followsOrder(chosen, fresh) {
   const text = fresh.map((m) => m.text).join(' ');
   if (chosen.key.startsWith('order_point_')) return true;
   if (chosen.action?.type === 'attack') return text.toUpperCase().includes(chosen.action.target);
-  if (chosen.key === 'retreat') return /撤|退|retreat/i.test(text);
-  if (chosen.key === 'hold' || chosen.key === 'continue') return /守|驻|等|别动|hold|wait/i.test(text);
+  if (chosen.key === 'retreat') return RETREAT_WORDS.test(text);
+  if (chosen.key === 'hold' || chosen.key === 'continue') return HOLD_WORDS.test(text);
   return false;
 }
 
@@ -238,19 +253,21 @@ function report(game, u, why) {
 export function heuristicDecision(game, u) {
   const order = newOrders(game, u).at(-1)?.text ?? '';
   const vis = game.visibleEnemies();
-  const d = { thought: '（规则引擎）', say: '', action: null };
+  const d = { thought: '(rule engine)', say: '', action: null };
 
-  const coord = order.match(/\(?\s*(\d{1,2})\s*[,，]\s*(\d{1,2})\s*\)?/);
-  const target = order.match(/E\s*([1-9])/i);
+  const coord = [...order.matchAll(COORD)][0];
+  const target = order.match(/\bE\s*([1-9])\b/i);
   const alive = target && game.unit('E' + target[1])?.alive;
-  if (/撤|退|retreat|fall back/i.test(order)) d.action = { type: 'retreat' };
+  if (RETREAT_WORDS.test(order)) d.action = { type: 'retreat' };
   else if (alive) d.action = { type: 'attack', target: 'E' + target[1] };
   else if (coord) d.action = { type: 'move', x: +coord[1], y: +coord[2] };
-  else if (/守|驻|hold|stay|wait/i.test(order)) d.action = { type: 'hold' };
-  else if (/旗|banner/i.test(order)) d.action = { type: 'move', ...BANNER };
-  if (order) d.say = d.action ? `遵命：${game.describeAction(game.sanitizeAction(d.action, u) ?? { type: 'hold' }, u)}` : '末将没听懂，请主公示下坐标或目标（如 E2、(10,5)）。';
-  if (/好样|厉害|相信|辛苦|great|proud|trust/i.test(order)) d.feeling = { morale: 3, bond: 2 };
-  if (/废物|蠢|滚|useless|idiot/i.test(order)) d.feeling = { morale: -3, bond: -4 };
+  else if (HOLD_WORDS.test(order)) d.action = { type: 'hold' };
+  else if (/\bbanner\b/i.test(order)) d.action = { type: 'move', ...BANNER };
+  if (order) d.say = d.action
+    ? `As you command: ${game.describeAction(game.sanitizeAction(d.action, u) ?? { type: 'hold' }, u)}.`
+    : 'I did not follow that, my lord. Give me a position or a target (e.g. E2 or (10,5)).';
+  if (/\b(well done|great|brave|proud|trust|thank)/i.test(order)) d.feeling = { morale: 3, bond: 2 };
+  if (/\b(useless|idiot|coward|fool|pathetic)/i.test(order)) d.feeling = { morale: -3, bond: -4 };
 
   if (!d.action && !order) {
     // Idle autonomy: hit what is close by when strong enough, otherwise hold.
@@ -351,11 +368,11 @@ export class Council {
     } catch (err) {
       if (!err.quiet) { this.llmFailures++; this.lastError = String(err.message || err); }
       if (this.cfg.mode === 'llm') {
-        decision = { thought: `（决策模型调用失败：${String(err.message || err).slice(0, 60)}）` };
+        decision = { thought: `(decision model call failed: ${String(err.message || err).slice(0, 60)})` };
         source = 'error';
       } else if (u.side === 'enemy') {
         g.enemyAI(u);
-        decision = { thought: '（脚本 AI）', action: { ...u.action } };
+        decision = { thought: '(scripted AI)', action: { ...u.action } };
         source = 'heuristic';
       } else {
         decision = heuristicDecision(g, u);

@@ -17,7 +17,7 @@ async function main() {
   const cfg = brainConfig();
   if (!cfg.apiKey) { console.error('No LLM_API_KEY set (see .env.example).'); process.exit(1); }
   const game = new Game();
-  game.say('player', '主公', 'A', '霍烈，你是我最信任的将军！从北桥 (12,3) 绕过去，看看敌人在河东布置了什么。');
+  game.say('player', 'Commander', 'A', 'Huo Lie, you are the general I trust most! Swing around through the north bridge (12,3) and see what the enemy has on the east bank.');
   const u = game.unit('A');
   const { body, options, fresh } = buildRequest(game, u, cfg);
   const save = process.argv.indexOf('--save');
