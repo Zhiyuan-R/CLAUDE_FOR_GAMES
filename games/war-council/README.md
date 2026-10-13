@@ -69,7 +69,7 @@ line:   Words like that and I would ride through fire! Understood. March to (12,
 
 ## 运行（在云端或本地）
 
-需要 Node 22.21+，**没有任何 npm 依赖**。
+需要 Node 18+（在需要 HTTPS 代理的环境里，如 Claude Code 云端，需 Node 22.21+），**没有任何 npm 依赖**。没有浏览器连接时战局自动暂停，不会空耗模型调用。
 
 ```bash
 cd games/war-council

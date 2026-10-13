@@ -1,6 +1,6 @@
 // War Council server: runs the battle simulation, schedules the generals'
 // decision-model calls, serves the browser UI and streams state over SSE.
-// No dependencies beyond Node 22.
+// No dependencies beyond Node 18 (22.21+ behind an HTTPS proxy).
 
 import http from 'node:http';
 import fs from 'node:fs';
@@ -36,8 +36,10 @@ function main() {
     for (const res of clients) res.write(data);
   }
 
+  // The battle only advances while someone is watching, so an idle server
+  // doesn't keep spending decision-model calls.
   setInterval(() => {
-    if (!paused) {
+    if (!paused && clients.size > 0) {
       game.step();
       council.update();
     }
