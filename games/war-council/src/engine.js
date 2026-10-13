@@ -95,14 +95,29 @@ export const GENERALS = [
   },
 ];
 
+// Enemy units. `role`/`post`/`leash`/`waypoints` drive the scripted fallback AI;
+// `persona` drives the decision model when the enemy side is model-controlled.
 const ENEMIES = [
-  { id: 'E1', name: '帅旗卫队', kind: 'infantry', x: 21, y: 8, troops: 320, role: 'guard', post: { x: 21, y: 8 }, leash: 3 },
-  { id: 'E2', name: '山丘弓手', kind: 'archer', x: 19, y: 5, troops: 200, role: 'guard', post: { x: 19, y: 5 }, leash: 2 },
-  { id: 'E3', name: '游骑', kind: 'cavalry', x: 18, y: 12, troops: 240, role: 'hunter', post: { x: 18, y: 12 }, leash: 8 },
+  { id: 'E1', name: '帅旗卫队', kind: 'infantry', x: 21, y: 8, troops: 320, role: 'guard', post: { x: 21, y: 8 }, leash: 3,
+    persona: '你是红军帅旗卫队的统领，铁面无私、寸步不让。你的天职是守住帅旗 (21,8)：帅旗一旦被夺，全军皆败。' +
+      '你只在敌人逼近帅旗时出击，绝不被引诱远离帅旗超过两三格；若帅旗附近空虚，你会立刻回防。' },
+  { id: 'E2', name: '山丘弓手', kind: 'archer', x: 19, y: 5, troops: 200, role: 'guard', post: { x: 19, y: 5 }, leash: 2,
+    persona: '你是红军弓手队长，精明而惜命。你偏爱占据东岸山丘 (19,5) 居高临下放箭，射程和视野都有加成。' +
+      '敌方骑兵或步兵贴近时你会后撤到友军身后，绝不和人肉搏；看到友军被围攻会就近远程支援。' },
+  { id: 'E3', name: '游骑', kind: 'cavalry', x: 18, y: 12, troops: 240, role: 'hunter', post: { x: 18, y: 12 }, leash: 8,
+    persona: '你是红军游骑的头领，狡猾、嗜血、善于抓机会。你专挑落单、残血或脆弱的敌人（尤其弓兵）下手，' +
+      '避免正面撞上满编的步兵方阵。若敌军主力都过了河，你会考虑绕路奇袭对方大营 (2,8)，逼他们回防。' },
   { id: 'E4', name: '巡桥队', kind: 'infantry', x: 14, y: 8, troops: 260, role: 'patrol',
-    waypoints: [{ x: 13, y: 3 }, { x: 13, y: 8 }, { x: 13, y: 13 }, { x: 13, y: 8 }], leash: 4 },
-  { id: 'E5', name: '南营守备', kind: 'infantry', x: 20, y: 11, troops: 230, role: 'guard', post: { x: 20, y: 11 }, leash: 3 },
+    waypoints: [{ x: 13, y: 3 }, { x: 13, y: 8 }, { x: 13, y: 13 }, { x: 13, y: 8 }], leash: 4,
+    persona: '你是红军巡桥队的校尉，沉稳老练。三座桥 (12,3)(12,8)(12,13) 是敌人过河的唯一通道，你的职责是卡住桥头，' +
+      '半渡而击；哪座桥受到威胁就去哪座。兵力不济时退向帅旗与卫队会合。' },
+  { id: 'E5', name: '南营守备', kind: 'infantry', x: 20, y: 11, troops: 230, role: 'guard', post: { x: 20, y: 11 }, leash: 3,
+    persona: '你是红军南营守备，谨慎稳重。你守着帅旗南侧 (20,11)，是帅旗卫队的后援。' +
+      '敌人从南桥或森林方向来时迎击；帅旗受攻击时你会赶去支援卫队。' },
 ];
+
+export const SIDE_NAME = { ally: '蓝军', enemy: '红军' };
+export const foeOf = (side) => (side === 'ally' ? 'enemy' : 'ally');
 
 export const dist = (a, b) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
 
@@ -119,6 +134,8 @@ export function dirName(from, to) {
 export class Game {
   constructor(opts = {}) {
     this.maxTicks = opts.maxTicks ?? 900;
+    // When false, enemy actions come from outside (the decision model) instead of enemyAI().
+    this.scriptedEnemies = opts.scriptedEnemies ?? true;
     this.reset();
   }
 
@@ -140,7 +157,7 @@ export class Game {
       })),
       ...ENEMIES.map((e) => ({
         ...e, side: 'enemy', maxTroops: e.troops, morale: 75, action: { type: 'hold' },
-        routing: false, alive: true, wp: 0,
+        routing: false, alive: true, wp: 0, thought: '', thinking: false, lastDecisionTick: -999, brainSource: '',
       })),
     ];
     this.msgSeq = 0;
@@ -156,8 +173,9 @@ export class Game {
   passable(x, y) { const t = this.terrainAt(x, y); return t !== undefined && t !== '~'; }
   occupant(x, y) { return this.units.find((u) => u.alive && u.x === x && u.y === y); }
 
-  log(text) {
-    this.events.push({ seq: ++this.evSeq, tick: this.tick, text });
+  // `side` limits who hears about it: 'all', or only 'ally' / 'enemy'.
+  log(text, side = 'all') {
+    this.events.push({ seq: ++this.evSeq, tick: this.tick, text, side });
     if (this.events.length > 200) this.events.shift();
   }
 
@@ -173,10 +191,10 @@ export class Game {
     return this.terrainAt(u.x, u.y) === 'H' ? base + 2 : base;
   }
 
-  // Cells currently seen by the allied side.
-  visibleSet() {
+  // Cells currently seen by one side.
+  visibleSet(side = 'ally') {
     const seen = new Set();
-    for (const a of this.allies()) {
+    for (const a of this.units.filter((u) => u.alive && u.side === side)) {
       const r = this.visionOf(a);
       for (let y = a.y - r; y <= a.y + r; y++)
         for (let x = a.x - r; x <= a.x + r; x++)
@@ -185,10 +203,13 @@ export class Game {
     return seen;
   }
 
-  visibleEnemies() {
-    const seen = this.visibleSet();
-    return this.enemies().filter((e) => seen.has(e.x + ',' + e.y));
+  // Living units of the other side that `side` can currently see.
+  visibleFoes(side = 'ally') {
+    const seen = this.visibleSet(side);
+    return this.units.filter((e) => e.alive && e.side !== side && seen.has(e.x + ',' + e.y));
   }
+
+  visibleEnemies() { return this.visibleFoes('ally'); }
 
   rangeOf(u) {
     const r = KINDS[u.kind].range;
@@ -242,22 +263,24 @@ export class Game {
     if (!u.alive) return;
     u.brainSource = source;
     u.thought = (d.thought || '').slice(0, 200);
+    u.top = d.top ?? null;
+    u.obey = d.obey ?? null;
     u.lastDecisionTick = this.tick;
     if (d.feeling) {
       const clamp = (v) => Math.max(-8, Math.min(8, Number(v) || 0));
       u.morale = Math.max(0, Math.min(100, u.morale + clamp(d.feeling.morale)));
       u.bond = Math.max(0, Math.min(100, u.bond + clamp(d.feeling.bond)));
     }
-    const a = this.sanitizeAction(d.action);
+    const a = this.sanitizeAction(d.action, u);
     if (a && !u.routing) {
       const changed = JSON.stringify(a) !== JSON.stringify(u.action);
       u.action = a;
-      if (changed) this.log(`${u.name} → ${this.describeAction(a)}`);
+      if (changed) this.log(`${u.name} → ${this.describeAction(a, u)}`, u.side);
     }
     if (d.say && String(d.say).trim()) this.say(u.id, u.name, d.to || 'all', String(d.say).trim().slice(0, 240), source);
   }
 
-  sanitizeAction(a) {
+  sanitizeAction(a, u) {
     if (!a || typeof a !== 'object') return null;
     const type = String(a.type || '').toLowerCase();
     const cx = (v, max) => Math.max(0, Math.min(max - 1, Math.round(Number(v))));
@@ -268,7 +291,7 @@ export class Game {
     }
     if (type === 'attack') {
       const t = this.unit(String(a.target || '').toUpperCase());
-      if (t && t.side === 'enemy' && t.alive) return { type: 'attack', target: t.id };
+      if (t && t.alive && t.side !== (u?.side ?? 'ally')) return { type: 'attack', target: t.id };
       return null;
     }
     if (type === 'hold') return { type: 'hold' };
@@ -276,26 +299,27 @@ export class Game {
     return null;
   }
 
-  describeAction(a) {
+  describeAction(a, u) {
     switch (a.type) {
       case 'move': return `行军至 (${a.x},${a.y})`;
       case 'attack': { const t = this.unit(a.target); return `进攻 ${a.target}${t ? ' ' + t.name : ''}`; }
-      case 'retreat': return '撤回大营';
+      case 'retreat': return u?.side === 'enemy' ? '撤回驻地' : '撤回大营';
       default: return '原地驻守';
     }
   }
 
   // ---------- perception (the text a general "sees") ----------
   asciiMap(viewer) {
-    const seen = this.visibleSet();
+    const seen = this.visibleSet(viewer.side);
+    const label = (u) => (u.side === 'ally' ? u.id : u.id.slice(1));
     const rows = [];
     rows.push('    ' + Array.from({ length: W }, (_, x) => (x % 10)).join(''));
     for (let y = 0; y < H; y++) {
       let row = '';
       for (let x = 0; x < W; x++) {
         const u = this.occupant(x, y);
-        if (u && u.side === 'ally') row += u === viewer ? '@' : u.id;
-        else if (u && seen.has(x + ',' + y)) row += u.id.slice(1);
+        if (u === viewer) row += '@';
+        else if (u && (u.side === viewer.side || seen.has(x + ',' + y))) row += label(u);
         else if (!seen.has(x + ',' + y) && !'CB~='.includes(this.map[y][x])) row += '?';
         else row += this.map[y][x];
       }
@@ -305,37 +329,19 @@ export class Game {
   }
 
   perceive(u) {
+    if (u.side === 'enemy') return this.perceiveEnemy(u);
     const k = KINDS[u.kind];
     const t = TERRAIN[this.terrainAt(u.x, u.y)];
     const lines = [];
     lines.push(`【第 ${this.tick} 回合】(每回合约 1 秒)`);
     lines.push(`你：${u.id} ${u.name}（${k.label}），位置 (${u.x},${u.y}) ${t.name}，兵力 ${Math.round(u.troops)}/${u.maxTroops}，士气 ${Math.round(u.morale)}，对主公的羁绊 ${Math.round(u.bond)}。`);
-    lines.push(`当前行动：${this.describeAction(u.action)}${u.routing ? '（部队溃散中，正在撤退！）' : ''}。攻击射程 ${this.rangeOf(u)}，视野 ${this.visionOf(u)}。`);
+    lines.push(`当前行动：${this.describeAction(u.action, u)}${u.routing ? '（部队溃散中，正在撤退！）' : ''}。攻击射程 ${this.rangeOf(u)}，视野 ${this.visionOf(u)}。`);
     lines.push('');
     lines.push('地图（x 向右 0-23，y 向下 0-15；@=你，A/B/C=友军将领，数字=敌军 E编号，?=迷雾）：');
     lines.push('图例：.平原 F森林 H山丘 ~河(不可通行) =桥 V村庄(补给) C我方大营 B敌方帅旗');
     lines.push(this.asciiMap(u));
     lines.push('');
-    const vis = this.visibleEnemies();
-    if (vis.length) {
-      lines.push('可见敌军：');
-      for (const e of vis.sort((a, b) => dist(u, a) - dist(u, b))) {
-        lines.push(`- ${e.id} ${e.name}（${KINDS[e.kind].label}）(${e.x},${e.y}) ${TERRAIN[this.terrainAt(e.x, e.y)].name}，兵力约 ${Math.round(e.troops)}，距你 ${dist(u, e)} 格，方向 ${dirName(u, e)}${e.routing ? '，正在溃逃' : ''}`);
-      }
-    } else lines.push('目前看不到任何敌军。');
-    const others = this.allies().filter((a) => a !== u);
-    if (others.length) {
-      lines.push('友军将领：');
-      for (const a of others) lines.push(`- ${a.id} ${a.name}（${KINDS[a.kind].label}）(${a.x},${a.y})，兵力 ${Math.round(a.troops)}，士气 ${Math.round(a.morale)}，${this.describeAction(a.action)}`);
-    }
-    const fallen = this.units.filter((x) => x.side === 'ally' && !x.alive);
-    if (fallen.length) lines.push('已阵亡/覆灭：' + fallen.map((f) => f.name).join('、'));
-    const evs = this.events.slice(-8);
-    if (evs.length) {
-      lines.push('');
-      lines.push('最近战报：');
-      for (const e of evs) lines.push(`- [${e.tick}] ${e.text}`);
-    }
+    this.describeForces(u, lines, '敌军', '友军将领');
     const msgs = this.messages.filter((m) => m.to === 'all' || m.to === u.id || m.from === u.id).slice(-10);
     lines.push('');
     lines.push('军议频道（最近消息）：');
@@ -347,13 +353,58 @@ export class Game {
     return lines.join('\n');
   }
 
+  // The enemy side sees the same world from across the river: its own fog,
+  // its own comrades, and the battle reports from its point of view.
+  perceiveEnemy(u) {
+    const k = KINDS[u.kind];
+    const t = TERRAIN[this.terrainAt(u.x, u.y)];
+    const lines = [];
+    lines.push(`【第 ${this.tick} 回合】(每回合约 1 秒)`);
+    lines.push('你属于守卫河东的红军。蓝军三位将领正从河西进攻，他们的目标是夺取我方帅旗 B(21,8)（站上去且周围无我军坚守 3 回合即告破），或把我军全部击溃。');
+    lines.push('我军胜利条件：击溃全部蓝军将领，或占领蓝军大营 C(2,8) 3 回合，或守到第 900 回合。');
+    lines.push(`你：${u.id} ${u.name}（${k.label}），位置 (${u.x},${u.y}) ${t.name}，兵力 ${Math.round(u.troops)}/${u.maxTroops}，士气 ${Math.round(u.morale)}。`);
+    lines.push(`当前行动：${this.describeAction(u.action, u)}${u.routing ? '（部队溃散中，正在撤退！）' : ''}。攻击射程 ${this.rangeOf(u)}，视野 ${this.visionOf(u)}。`);
+    lines.push('');
+    lines.push('地图（x 向右 0-23，y 向下 0-15；@=你，数字=红军友军 E编号，A/B/C=蓝军敌将，?=迷雾）：');
+    lines.push('图例：.平原 F森林 H山丘 ~河(不可通行) =桥 V村庄(补给) C蓝军大营 B我方帅旗');
+    lines.push(this.asciiMap(u));
+    lines.push('');
+    this.describeForces(u, lines, '蓝军敌将', '红军友军');
+    return lines.join('\n');
+  }
+
+  describeForces(u, lines, foeLabel, friendLabel) {
+    const vis = this.visibleFoes(u.side);
+    if (vis.length) {
+      lines.push(`可见${foeLabel}：`);
+      for (const e of vis.sort((a, b) => dist(u, a) - dist(u, b))) {
+        lines.push(`- ${e.id} ${e.name}（${KINDS[e.kind].label}）(${e.x},${e.y}) ${TERRAIN[this.terrainAt(e.x, e.y)].name}，兵力约 ${Math.round(e.troops)}，距你 ${dist(u, e)} 格，方向 ${dirName(u, e)}${e.routing ? '，正在溃逃' : ''}`);
+      }
+    } else lines.push(`目前看不到任何${foeLabel}。`);
+    const others = this.units.filter((a) => a.alive && a.side === u.side && a !== u);
+    if (others.length) {
+      lines.push(`${friendLabel}：`);
+      for (const a of others) lines.push(`- ${a.id} ${a.name}（${KINDS[a.kind].label}）(${a.x},${a.y})，兵力 ${Math.round(a.troops)}，士气 ${Math.round(a.morale)}，${this.describeAction(a.action, a)}`);
+    }
+    const fallen = this.units.filter((x) => x.side === u.side && !x.alive);
+    if (fallen.length) lines.push('我方已覆灭：' + fallen.map((f) => f.name).join('、'));
+    // Shared reports are written from the blue side; flip them for red.
+    const flip = (txt) => (u.side === 'enemy' ? txt.replace(/我方|敌方/g, (m) => (m === '我方' ? '敌方' : '我方')).replace(/我军/g, '蓝军') : txt);
+    const evs = this.events.filter((e) => e.side === 'all' || e.side === u.side).slice(-8);
+    if (evs.length) {
+      lines.push('');
+      lines.push('最近战报：');
+      for (const e of evs) lines.push(`- [${e.tick}] ${flip(e.text)}`);
+    }
+  }
+
   // ---------- simulation ----------
   step() {
     if (this.status !== 'playing') return;
     this.tick++;
     const all = this.units.filter((u) => u.alive);
 
-    for (const e of this.enemies()) this.enemyAI(e);
+    if (this.scriptedEnemies) for (const e of this.enemies()) this.enemyAI(e);
 
     // Movement
     const movedThisTick = new Set();
@@ -400,8 +451,8 @@ export class Game {
       t.troops = Math.max(0, t.troops - dmg);
       t.morale = Math.max(0, t.morale - (dmg / t.maxTroops) * 70);
       if (t.troops < t.maxTroops * 0.3) t.morale = Math.max(0, t.morale - 0.6);
-      if (Math.floor(before / 50) !== Math.floor(t.troops / 50) && t.side === 'ally')
-        this.log(`${t.name} 遭到攻击，兵力降至 ${Math.round(t.troops)}`);
+      if (Math.floor(before / 50) !== Math.floor(t.troops / 50))
+        this.log(`${t.name} 遭到攻击，兵力降至 ${Math.round(t.troops)}`, t.side);
     }
 
     // Recovery, rout, death
@@ -500,13 +551,18 @@ export class Game {
       seen: showAll ? null : [...seen],
       units: this.units
         .filter((u) => u.side === 'ally' || showAll || (u.alive && seen.has(u.x + ',' + u.y)))
-        .map((u) => ({
-          id: u.id, name: u.name, title: u.title, side: u.side, kind: u.kind, x: u.x, y: u.y,
-          troops: Math.round(u.troops), maxTroops: u.maxTroops, morale: Math.round(u.morale),
-          bond: u.bond !== undefined ? Math.round(u.bond) : undefined, alive: u.alive, routing: u.routing,
-          action: u.action, thought: u.thought, thinking: u.thinking, brainSource: u.brainSource,
-        })),
-      events: this.events.slice(-40),
+        .map((u) => {
+          // The enemy's intentions stay secret until the battle is over.
+          const secret = u.side === 'enemy' && !showAll;
+          return {
+            id: u.id, name: u.name, title: u.title, side: u.side, kind: u.kind, x: u.x, y: u.y,
+            troops: Math.round(u.troops), maxTroops: u.maxTroops, morale: Math.round(u.morale),
+            bond: u.bond !== undefined ? Math.round(u.bond) : undefined, alive: u.alive, routing: u.routing,
+            action: secret ? { type: 'unknown' } : u.action, thought: secret ? '' : u.thought, top: secret ? null : u.top ?? null, obey: secret ? null : u.obey ?? null,
+            thinking: secret ? false : u.thinking, brainSource: secret ? '' : u.brainSource,
+          };
+        }),
+      events: this.events.filter((e) => showAll || e.side !== 'enemy').slice(-40),
       messages: this.messages.slice(-80),
     };
   }

@@ -39,7 +39,7 @@ async function main() {
     game.step();
     council.update();
     // In fast mode give in-flight LLM calls a chance to land before the next tick.
-    if (fast && council.useLLM) while (game.allies().some((u) => u.thinking)) await sleep(50);
+    if (fast && council.useLLM) while (game.units.some((u) => u.thinking)) await sleep(50);
     else await sleep(tickMs);
     for (const m of game.messages.filter((m) => m.seq > printedMsg)) {
       console.log(`💬 [${m.tick}] ${m.name}${m.to !== 'all' ? ' → ' + m.to : ''}: ${m.text}${m.source && m.source !== 'llm' ? ` (${m.source})` : ''}`);
@@ -50,7 +50,7 @@ async function main() {
       printedEv = e.seq;
     }
   }
-  while (game.allies().some((u) => u.thinking)) await sleep(50);
+  while (game.units.some((u) => u.thinking)) await sleep(50);
   console.log('\n=== Result ===');
   console.log(game.status, game.result || `(stopped at tick ${game.tick})`);
   for (const u of game.units) console.log(`${u.side.padEnd(5)} ${u.id} ${u.name} troops=${Math.round(u.troops)} morale=${Math.round(u.morale)} ${u.alive ? '' : 'DEAD'} ${u.thought ? '“' + u.thought + '”' : ''}`);

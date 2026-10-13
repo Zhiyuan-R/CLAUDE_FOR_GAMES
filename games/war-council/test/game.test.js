@@ -142,3 +142,56 @@ test('in llm mode a failed call is surfaced, not replaced by rules', async () =>
   assert.equal(g.unit('B').brainSource, 'error');
   assert.match(c.status().lastError, /403/);
 });
+
+test('enemy perception uses red fog, red goals and flipped reports', () => {
+  const g = new Game();
+  g.log('我方 霍烈（A）全军覆没！');
+  g.log('苏璃 → 行军至 (9,6)', 'ally');
+  const p = g.perceive(g.unit('E3'));
+  assert.match(p, /红军/);
+  assert.match(p, /敌方 霍烈/);
+  assert.doesNotMatch(p, /苏璃 → 行军/, 'blue-only reports stay hidden from red');
+  assert.doesNotMatch(p, /主公/);
+  assert.ok(g.visibleFoes('enemy').every((u) => u.side === 'ally'));
+});
+
+test('enemy options target blue units and include raiding the blue camp', () => {
+  const g = new Game();
+  const e = g.unit('E4');
+  Object.assign(g.unit('C'), { x: 11, y: 8 });
+  const opts = actionOptions(g, e);
+  const keys = opts.map((o) => o.key);
+  assert.ok(keys.includes('attack_C'));
+  assert.ok(keys.includes('go_camp') && keys.includes('support_E1'));
+  assert.ok(!keys.some((k) => k.startsWith('order_point')));
+  assert.equal(g.sanitizeAction({ type: 'attack', target: 'C' }, e).target, 'C');
+  assert.equal(g.sanitizeAction({ type: 'attack', target: 'E1' }, e), null, 'no friendly fire');
+});
+
+test('council drives enemy units with the model and hides their intent while playing', async () => {
+  const g = new Game();
+  let body;
+  const fetchImpl = async (url, init) => {
+    body = JSON.parse(init.body);
+    return new Response(JSON.stringify({ answers: { action: { choice: 'go_camp', probabilities: { go_camp: 0.7, hold: 0.3 } } } }), { status: 200 });
+  };
+  const c = new Council(g, cfg, { fetchImpl });
+  assert.equal(g.scriptedEnemies, false);
+  const e3 = g.unit('E3');
+  await c.think(e3);
+  assert.deepEqual(Object.keys(body.questions), ['action']);
+  assert.match(body.state, /游骑/);
+  assert.deepEqual(e3.action, { type: 'move', x: 2, y: 8 });
+  const seen = g.snapshot().units.find((u) => u.id === 'E3');
+  assert.ok(!seen || (seen.action.type === 'unknown' && !seen.thought));
+  g.status = 'lost';
+  assert.equal(g.snapshot().units.find((u) => u.id === 'E3').action.type, 'move');
+});
+
+test('enemies stay scripted when ENEMY_BRAIN=script or without a key', () => {
+  const g = new Game();
+  new Council(g, { ...cfg, enemyBrain: 'script' });
+  assert.equal(g.scriptedEnemies, true);
+  new Council(g, { ...cfg, apiKey: '' });
+  assert.equal(g.scriptedEnemies, true);
+});

@@ -1,4 +1,6 @@
-// Generals' brains, driven by SubQ's Decisions API (POST /v1/systemone).
+// Brains for both sides, driven by SubQ's Decisions API (POST /v1/systemone).
+// The player's three generals and each red (enemy) unit decide independently,
+// each from its own side's fog of war.
 //
 // The decision model doesn't write text: it reads a state (the general's
 // persona + perception) plus an image of the battlefield, and answers typed
@@ -25,6 +27,7 @@ export function brainConfig(env = process.env) {
     model: env.LLM_MODEL || 'subq-snap-preview',
     timeoutMs: Number(env.LLM_TIMEOUT_MS || 15000),
     images: env.LLM_IMAGES !== '0',
+    enemyBrain: (env.ENEMY_BRAIN || 'llm').toLowerCase(), // llm | script
   };
 }
 
@@ -38,7 +41,8 @@ export const LANDMARKS = [
   { key: 'east_village', name: '东岸村庄(补给)', x: 16, y: 3 },
   { key: 'east_forest', name: '东岸森林', x: 16, y: 10 },
   { key: 'east_hill', name: '东岸山丘', x: 19, y: 5 },
-  { key: 'banner', name: '敌方帅旗', x: BANNER.x, y: BANNER.y },
+  { key: 'banner', name: '敌方帅旗', enemyName: '我方帅旗（回防）', x: BANNER.x, y: BANNER.y },
+  { key: 'camp', name: '我方大营', enemyName: '蓝军大营（奇袭）', x: CAMP.x, y: CAMP.y, enemyOnly: true },
 ];
 
 // Coordinates the commander mentioned recently to this general.
@@ -55,24 +59,29 @@ function orderPoints(game, u) {
 
 // Builds the concrete options for the action question, each mapped to an engine action.
 export function actionOptions(game, u) {
+  const red = u.side === 'enemy';
   const opts = [];
   const add = (key, desc, action, label) => opts.push({ key, desc, action, label });
-  add('continue', `继续当前行动：${game.describeAction(u.action)}`, null, '继续');
-  for (const e of game.visibleEnemies().sort((a, b) => dist(u, a) - dist(u, b)))
+  add('continue', `继续当前行动：${game.describeAction(u.action, u)}`, null, '继续');
+  for (const e of game.visibleFoes(u.side).sort((a, b) => dist(u, a) - dist(u, b)))
     add(`attack_${e.id}`, `进攻 ${e.id} ${e.name}（${KINDS[e.kind].label}，兵力约 ${Math.round(e.troops)}，距 ${dist(u, e)} 格，在${dirName(u, e)}方）`,
       { type: 'attack', target: e.id }, `攻${e.id}`);
-  const points = orderPoints(game, u);
+  const points = red ? [] : orderPoints(game, u);
   const landmarkAt = (p) => LANDMARKS.find((l) => l.x === p.x && l.y === p.y);
   points.forEach((p, i) => {
     const l = landmarkAt(p);
     add(`order_point_${i + 1}`, `前往主公命令中提到的坐标 (${p.x},${p.y})${l ? '，即' + l.name : ''}`, { type: 'move', x: p.x, y: p.y }, l?.name ?? `(${p.x},${p.y})`);
   });
-  for (const l of LANDMARKS) if (dist(u, l) > 0 && !points.some((p) => p.x === l.x && p.y === l.y))
-    add(`go_${l.key}`, `行军至${l.name} (${l.x},${l.y})，距 ${dist(u, l)} 格`, { type: 'move', x: l.x, y: l.y }, l.name);
-  for (const a of game.allies()) if (a !== u)
-    add(`support_${a.id}`, `前去支援 ${a.name}（当前在 (${a.x},${a.y})）`, { type: 'move', x: a.x, y: a.y }, `援${a.name}`);
+  for (const l of LANDMARKS) {
+    if (dist(u, l) === 0 || (l.enemyOnly && !red) || points.some((p) => p.x === l.x && p.y === l.y)) continue;
+    const name = red ? l.enemyName ?? l.name : l.name;
+    add(`go_${l.key}`, `行军至${name} (${l.x},${l.y})，距 ${dist(u, l)} 格`, { type: 'move', x: l.x, y: l.y }, name.replace(/（.*）/, ''));
+  }
+  for (const a of game.units) if (a.alive && a.side === u.side && a !== u)
+    add(`support_${a.id}`, `前去支援 ${a.id} ${a.name}（当前在 (${a.x},${a.y})）`, { type: 'move', x: a.x, y: a.y }, `援${a.name}`);
   add('hold', '原地驻守，攻击进入射程的敌人', { type: 'hold' }, '驻守');
-  add('retreat', '撤回我方大营休整补给', { type: 'retreat' }, '撤退');
+  const home = red ? (u.post ?? BANNER) : CAMP;
+  add('retreat', red ? `撤回驻地 (${home.x},${home.y}) 重整` : '撤回我方大营休整补给', { type: 'retreat' }, '撤退');
   return opts;
 }
 
@@ -80,7 +89,29 @@ function newOrders(game, u) {
   return game.messages.filter((m) => m.from === 'player' && m.seq > u.lastSeenMsg && (m.to === 'all' || m.to === u.id));
 }
 
+const MAP_LEGEND = '蓝色圆点为蓝军将领（字母 A/B/C），红色圆点为红军部队（数字为 E 编号），黄色外圈的是你本人；' +
+  '暗色格为你方视野外的战争迷雾，深绿为森林，土黄为山丘，蓝色竖带为河流（只能从桥通过），左侧蓝格为蓝军大营，右侧红格为红军帅旗。坐标标在上方和左侧。';
+
+function buildEnemyRequest(game, u, cfg) {
+  const options = actionOptions(game, u);
+  const body = {
+    model: cfg.model,
+    state: `以下是红军部队 ${u.id}「${u.name}」统领的人设：\n${u.persona}\n\n附图是战场俯视图：${MAP_LEGEND}\n\n${game.perceive(u)}`,
+    questions: {
+      action: {
+        type: 'choice',
+        instructions: `${u.name}接下来会怎么做？请代入其性格与职责，结合图中和文字描述的战场形势（地形、敌我兵力、兵种克制、射程、` +
+          '帅旗与大营的安危、友军的位置）做出最合理的战术判断。',
+        criteria: Object.fromEntries(options.map((o) => [o.key, o.desc])),
+      },
+    },
+  };
+  if (cfg.images) body.images = [{ mediaType: 'image/png', base64: renderView(game, u).toString('base64') }];
+  return { body, options, fresh: [] };
+}
+
 export function buildRequest(game, u, cfg) {
+  if (u.side === 'enemy') return buildEnemyRequest(game, u, cfg);
   const options = actionOptions(game, u);
   const fresh = newOrders(game, u);
   const name = u.name;
@@ -151,8 +182,9 @@ export function interpret(game, u, answers, options, fresh) {
   const chosen = options.find((o) => o.key === answers.action.choice) ?? options[0];
   const label = (k) => options.find((o) => o.key === k)?.label ?? k;
   const thought = ranked.slice(0, 3).map(([k, p]) => `${label(k)} ${Math.round(p * 100)}%`).join(' · ');
-  const d = { thought, action: chosen.action, say: '' };
-  const act = game.describeAction(chosen.action ?? u.action);
+  const top = ranked.slice(0, 4).map(([k, p]) => ({ label: label(k), p: Math.round(p * 100) / 100 }));
+  const d = { thought, top, action: chosen.action, say: '' };
+  const act = game.describeAction(chosen.action ?? u.action, u);
   if (fresh.length) {
     const morale = scoreToDelta(answers.morale);
     const bond = scoreToDelta(answers.bond);
@@ -166,6 +198,7 @@ export function interpret(game, u, answers, options, fresh) {
     else if (morale <= -3 || bond <= -3) say = pick(lines.hurt) + ' ' + say;
     d.say = say;
     d.thought += ` · 服从 ${Math.round(obey * 100)}%`;
+    d.obey = Math.round(obey * 100) / 100;
   }
   return d;
 }
@@ -215,7 +248,7 @@ export function heuristicDecision(game, u) {
   else if (coord) d.action = { type: 'move', x: +coord[1], y: +coord[2] };
   else if (/守|驻|hold|stay|wait/i.test(order)) d.action = { type: 'hold' };
   else if (/旗|banner/i.test(order)) d.action = { type: 'move', ...BANNER };
-  if (order) d.say = d.action ? `遵命：${game.describeAction(game.sanitizeAction(d.action) ?? { type: 'hold' })}` : '末将没听懂，请主公示下坐标或目标（如 E2、(10,5)）。';
+  if (order) d.say = d.action ? `遵命：${game.describeAction(game.sanitizeAction(d.action, u) ?? { type: 'hold' }, u)}` : '末将没听懂，请主公示下坐标或目标（如 E2、(10,5)）。';
   if (/好样|厉害|相信|辛苦|great|proud|trust/i.test(order)) d.feeling = { morale: 3, bond: 2 };
   if (/废物|蠢|滚|useless|idiot/i.test(order)) d.feeling = { morale: -3, bond: -4 };
 
@@ -245,10 +278,16 @@ export class Council {
     this.prev = new Map();
     this.why = new Map();
     this.generation = 0;
+    game.scriptedEnemies = !this.drivesEnemies;
   }
 
   get useLLM() {
     return this.cfg.mode !== 'heuristic' && !!this.cfg.apiKey;
+  }
+
+  // Whether the red side is also driven by the decision model.
+  get drivesEnemies() {
+    return this.useLLM && this.cfg.enemyBrain !== 'script';
   }
 
   resetState() {
@@ -260,9 +299,9 @@ export class Council {
   // Signals that warrant an immediate re-think.
   triggered(u) {
     const g = this.game;
-    const hasNew = g.messages.some((m) => m.seq > u.lastSeenMsg && m.from === 'player' && (m.to === 'all' || m.to === u.id));
+    const hasNew = u.side === 'ally' && g.messages.some((m) => m.seq > u.lastSeenMsg && m.from === 'player' && (m.to === 'all' || m.to === u.id));
     const p = this.prev.get(u.id) || {};
-    const visible = g.visibleEnemies().map((e) => e.id).sort();
+    const visible = g.visibleFoes(u.side).map((e) => e.id).sort();
     const cur = { visible: visible.join(','), troopsBand: Math.floor(u.troops / (u.maxTroops * 0.2)), routing: u.routing };
     const arrived = u.action.type === 'move' && u.x === u.action.x && u.y === u.action.y;
     const first = p.visible === undefined;
@@ -282,7 +321,8 @@ export class Council {
   update() {
     const g = this.game;
     if (g.status !== 'playing') return;
-    for (const u of g.allies()) {
+    const units = this.drivesEnemies ? g.units.filter((u) => u.alive) : g.allies();
+    for (const u of units) {
       if (u.thinking || !this.triggered(u)) continue;
       this.think(u);
     }
@@ -305,7 +345,7 @@ export class Council {
       const answers = await callDecisions(this.cfg, body, this.fetchImpl);
       this.latencyMs = Date.now() - t0;
       decision = interpret(g, u, answers, options, fresh);
-      if (!decision.say) decision.say = report(g, u, why);
+      if (!decision.say && u.side === 'ally') decision.say = report(g, u, why);
       source = 'llm';
       this.lastError = '';
     } catch (err) {
@@ -313,6 +353,10 @@ export class Council {
       if (this.cfg.mode === 'llm') {
         decision = { thought: `（决策模型调用失败：${String(err.message || err).slice(0, 60)}）` };
         source = 'error';
+      } else if (u.side === 'enemy') {
+        g.enemyAI(u);
+        decision = { thought: '（脚本 AI）', action: { ...u.action } };
+        source = 'heuristic';
       } else {
         decision = heuristicDecision(g, u);
         source = 'heuristic';
@@ -332,6 +376,7 @@ export class Council {
       hasKey: !!this.cfg.apiKey,
       usingLLM: this.useLLM,
       images: this.cfg.images,
+      enemies: this.drivesEnemies ? 'model' : 'script',
       llmCalls: this.llmCalls,
       llmFailures: this.llmFailures,
       latencyMs: this.latencyMs,

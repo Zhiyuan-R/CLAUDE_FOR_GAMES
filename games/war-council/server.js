@@ -28,7 +28,7 @@ function main() {
   const clients = new Set();
 
   function payload() {
-    return JSON.stringify({ ...game.snapshot(), paused, brain: council.status() });
+    return JSON.stringify({ ...game.snapshot(), paused, tickMs: TICK_MS, brain: council.status() });
   }
 
   function broadcast() {

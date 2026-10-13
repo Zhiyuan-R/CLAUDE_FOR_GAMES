@@ -4,39 +4,78 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>军议 · War Council</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E%E2%9A%94%3C/text%3E%3C/svg%3E" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Crect width=%22100%22 height=%22100%22 rx=%2214%22 fill=%22%23b8342a%22/%3E%3Ctext x=%2250%22 y=%2270%22 font-size=%2260%22 text-anchor=%22middle%22 fill=%22%23f5e6c4%22%3E%E5%86%9B%3C/text%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;600;700&display=swap" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header>
-    <h1>军议 <small>War Council</small></h1>
-    <div id="hud">
-      <span id="tick">回合 0</span>
-      <span id="brain" class="badge">…</span>
-      <button id="pause">暂停</button>
-      <button id="reset">重开</button>
+  <header class="topbar">
+    <div class="brand">
+      <div class="seal">军<br />议</div>
+      <div>
+        <h1>军议</h1>
+        <p class="sub">War Council · 河东之战</p>
+      </div>
+    </div>
+    <div class="campaign">
+      <div class="objective">目标：夺取 <b>敌方帅旗 (21,8)</b> 坚守三回合，或击溃全部敌军</div>
+      <div class="progress">
+        <div class="track"><i id="tickbar"></i></div>
+        <span id="tick">第 0 回合</span>
+        <span class="hold" id="hold" title="帅旗坚守进度"><i></i><i></i><i></i></span>
+      </div>
+    </div>
+    <div class="controls">
+      <div class="brain" id="brain"></div>
+      <button class="icon" id="pause" title="暂停 / 继续">❚❚</button>
+      <button class="icon" id="reset" title="重新开始">↻</button>
     </div>
   </header>
-  <main>
-    <section id="field">
-      <canvas id="map" width="768" height="512"></canvas>
-      <p class="hint">点击地图插入坐标，点击敌军插入编号。三位将领由 SubQ 决策模型实时驱动（读战报 + 看战场图）——用自然语言下令、鼓舞或责备他们。</p>
-      <div id="banner" hidden></div>
-      <div id="events"></div>
+
+  <main class="layout">
+    <section class="board">
+      <div class="map-frame">
+        <canvas id="map"></canvas>
+        <div id="tooltip" hidden></div>
+        <div id="overlay" hidden>
+          <div class="verdict" id="verdict"></div>
+          <p id="verdict-text"></p>
+          <button id="again">再 战</button>
+        </div>
+      </div>
+      <div class="legend">
+        <span><i class="tok blue"></i>蓝军将领</span>
+        <span><i class="tok red"></i>红军部队</span>
+        <span><i class="sw forest"></i>森林 防御+30%</span>
+        <span><i class="sw hill"></i>山丘 视野射程+</span>
+        <span><i class="sw village"></i>村庄 补给</span>
+        <span><i class="sw river"></i>河流 仅桥可渡</span>
+        <span class="tip">点地图插入坐标 · 点敌军插入编号 · 点己方将领选为收令人</span>
+      </div>
     </section>
-    <aside>
-      <div id="generals"></div>
-      <div id="chat"></div>
-      <form id="order">
-        <select id="to">
-          <option value="all">众将</option>
-          <option value="A">霍烈</option>
-          <option value="B">苏璃</option>
-          <option value="C">老秦</option>
-        </select>
-        <input id="text" autocomplete="off" placeholder="例如：霍烈从南桥绕后突袭 E2 的弓手，老秦守住中桥" />
-        <button>下令</button>
-      </form>
+
+    <aside class="side">
+      <div id="generals" class="generals"></div>
+
+      <div class="panel comms">
+        <div class="tabs">
+          <button class="tab active" data-tab="chat">军议</button>
+          <button class="tab" data-tab="events">战报</button>
+          <button class="tab" data-tab="review" id="review-tab" hidden>敌军复盘</button>
+        </div>
+        <div class="pane" id="chat"></div>
+        <div class="pane" id="events" hidden></div>
+        <div class="pane" id="review" hidden></div>
+        <form id="order">
+          <div class="recipients" id="recipients"></div>
+          <div class="compose">
+            <input id="text" autocomplete="off" placeholder="向众将下令，也可以鼓舞或责备他们……" />
+            <button class="send">下令</button>
+          </div>
+        </form>
+      </div>
     </aside>
   </main>
   <script type="module" src="app.js"></script>

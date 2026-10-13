@@ -79,13 +79,13 @@ function chunk(type, data) {
   return Buffer.concat([len, td, crc]);
 }
 
-// Legend: blue discs = our generals (A/B/C, the viewer has a yellow ring),
-// red discs = enemies (number = E-id), dark cells = fog of war,
-// blue cell = our camp, red cell = enemy banner.
+// Legend: blue discs = the player's generals (A/B/C), red discs = the enemy
+// (number = E-id), yellow ring = the viewer, dark cells = the viewer side's fog
+// of war, blue cell = blue camp, red cell = red banner.
 export function renderView(game, viewer) {
   const cv = new Canvas(PAD + W * CELL, PAD + H * CELL);
   cv.rect(0, 0, cv.w, cv.h, [20, 18, 14]);
-  const seen = game.visibleSet();
+  const seen = game.visibleSet(viewer.side);
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const t = game.map[y][x];
     const px = PAD + x * CELL, py = PAD + y * CELL;
@@ -101,7 +101,7 @@ export function renderView(game, viewer) {
   for (let y = 0; y < H; y++) cv.text(y, y < 10 ? 6 : 1, PAD + y * CELL + 7, 2, [200, 190, 160]);
 
   for (const u of game.units) {
-    if (!u.alive || (u.side === 'enemy' && !seen.has(u.x + ',' + u.y))) continue;
+    if (!u.alive || (u.side !== viewer.side && !seen.has(u.x + ',' + u.y))) continue;
     const cx = PAD + u.x * CELL + CELL / 2, cy = PAD + u.y * CELL + CELL / 2;
     cv.disc(cx, cy, 10, u.side === 'ally' ? [60, 140, 220] : [220, 70, 60]);
     if (u === viewer) cv.ring(cx, cy, 12, 3, [255, 220, 40]);
