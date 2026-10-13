@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>秘境对决 · Claude for Games</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <div id="menu" class="screen">
+    <div class="menu-inner">
+      <header>
+        <div class="eyebrow">Claude for Games · 2.5D 动作 MOBA Demo</div>
+        <h1>秘境对决</h1>
+        <p class="sub">1v1 对战电脑 · 摧毁敌方外塔后，击碎基地水晶即可获胜</p>
+      </header>
+      <h2>选择英雄 <small>← → 切换</small></h2>
+      <div id="heroes" class="heroes"></div>
+      <div class="bottom-row">
+        <div>
+          <h2>电脑难度</h2>
+          <div id="difficulty" class="diffs"></div>
+        </div>
+        <div class="controls">
+          <h2>操作</h2>
+          <div class="keys">
+            <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 移动</span>
+            <span><kbd>J</kbd> 普攻（三段连击）</span>
+            <span>按住 <kbd>K</kbd> 蓄力，松开释放</span>
+            <span><kbd>空格</kbd>/<kbd>L</kbd> 穿梭（无敌帧）</span>
+            <span><kbd>U</kbd><kbd>I</kbd> 技能</span>
+            <span><kbd>Esc</kbd> 暂停 · <kbd>M</kbd> 静音</span>
+          </div>
+          <p class="tip">攻击会自动吸附面朝方向上的敌人，无需鼠标。</p>
+        </div>
+        <button id="start" class="primary">开始对局 <small>Enter</small></button>
+      </div>
+    </div>
+  </div>
+
+  <div id="pause" class="screen hidden">
+    <div class="dialog">
+      <h1>暂停</h1>
+      <button id="resume" class="primary">继续 <small>Esc</small></button>
+      <button id="quit">返回主菜单</button>
+    </div>
+  </div>
+
+  <div id="result" class="screen hidden">
+    <div class="dialog">
+      <h1 id="result-title">胜利</h1>
+      <div id="result-stats" class="result-stats"></div>
+      <button id="again" class="primary">再来一局 <small>Enter</small></button>
+      <button id="back">返回主菜单</button>
+    </div>
+  </div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
