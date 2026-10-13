@@ -24,7 +24,7 @@ export function dealDamage(game, src, target, amount, opts = {}) {
 
   amount = Math.round(amount);
   target.hp -= amount;
-  target.flash = 0.1;
+  if (!opts.dot && !opts.silent) target.flash = 0.1;
   const owner = src.owner || src;
   target.lastHitBy = owner;
   target.lastHitT = game.time;
@@ -36,7 +36,7 @@ export function dealDamage(game, src, target, amount, opts = {}) {
   else if (owner === game.player) { color = amount >= 100 ? '#ffd24a' : '#fff2b0'; size = amount >= 100 ? 24 : 17; }
   if (opts.dot) { color = opts.color || '#ff9a40'; size = 13; }
   if (target.kind === 'hero' || owner === game.player || target === game.player) {
-    game.fx.text(target.x, target.y, (target.height || 60) + 10, String(amount), color, size);
+    game.fx.damage(target, amount, color, size);
   }
 
   if (opts.kb && target.mass < 99) {
@@ -63,6 +63,10 @@ export function dealDamage(game, src, target, amount, opts = {}) {
   if (opts.hitstop) game.hitstop(opts.hitstop);
   if (opts.shake) game.shake(opts.shake);
   if (!opts.dot && !opts.silent) sfx.hit();
+  if (!opts.dot) {
+    const big = amount >= 90;
+    game.fx.impact(target.x, target.y, (target.height || 50) * 0.55, big ? '#ffd27a' : '#ffffff', big ? 1.4 : target.kind === 'minion' ? 0.6 : 0.9);
+  }
 
   // 防御塔仇恨：在敌方塔下攻击其英雄会被塔优先锁定
   if (owner.kind === 'hero' && target.kind === 'hero') {

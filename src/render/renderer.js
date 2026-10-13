@@ -230,7 +230,7 @@ export class Renderer {
     L.setTransform(1, 0, 0, 1, 0, 0);
     L.globalCompositeOperation = 'source-over';
     L.clearRect(0, 0, lw, lh);
-    L.fillStyle = 'rgba(10,6,26,0.58)';
+    L.fillStyle = 'rgba(12,6,34,0.52)';
     L.fillRect(0, 0, lw, lh);
     L.globalCompositeOperation = 'destination-out';
     const hole = (x, y, z, r, a = 1) => {
@@ -267,7 +267,7 @@ export class Renderer {
     for (const h of game.heroes) {
       if (!h.alive) continue;
       const tc = h === game.player ? '#5fd17a' : TEAM_COLORS[h.team];
-      const y = h.y * YS - h.z - 92;
+      const y = h.y * YS - h.z - (h.def.id === 'storm' ? 124 : 104);
       const ghost = this.trackGhost(h);
       hpBar(ctx, h.x, y, 64, h.hp / h.maxHp, tc, zoom, { label: h === game.player ? '你' : h.name, ghost });
       // 眩晕星星
@@ -296,7 +296,7 @@ export class Renderer {
       }
     }
     for (const m of game.minions) {
-      if (m.hp < m.maxHp) hpBar(ctx, m.x, m.y * YS - 50, 32, m.hp / m.maxHp, TEAM_COLORS[m.team], zoom);
+      if (m.hp < m.maxHp) hpBar(ctx, m.x, m.y * YS - 56, 32, m.hp / m.maxHp, TEAM_COLORS[m.team], zoom);
     }
     for (const tw of game.towers) {
       if (!tw.alive) continue;

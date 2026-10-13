@@ -42,6 +42,18 @@ export function buildProps() {
     const y = top ? BOUNDS.y0 + 5 + rnd() * 40 : BOUNDS.y1 - 10 - rnd() * 30;
     props.push({ type: 'shroom', x, y, s: 0.6 + rnd() * 0.6, seed: rnd(), r: 0, hue: rnd() < 0.5 ? 'teal' : 'pink' });
   }
+  // 蕨类植物：地图边缘与障碍物脚下
+  for (let i = 0; i < 46; i++) {
+    const top = rnd() < 0.5;
+    const x = BOUNDS.x0 + rnd() * (BOUNDS.x1 - BOUNDS.x0);
+    const y = top ? BOUNDS.y0 + rnd() * 50 : BOUNDS.y1 - rnd() * 40;
+    props.push({ type: 'fern', x, y, s: 0.8 + rnd() * 0.7, seed: rnd(), r: 0, hue: rnd() < 0.55 ? 'purple' : 'green' });
+  }
+  for (const o of props.filter((p) => p.type === 'pillar' || p.type === 'rock')) {
+    for (const dx of [-1, 1]) {
+      props.push({ type: 'fern', x: o.x + dx * (o.r + 8 + rnd() * 10), y: o.y + 6 + rnd() * 10, s: 0.6 + rnd() * 0.4, seed: rnd(), r: 0, hue: rnd() < 0.5 ? 'purple' : 'green' });
+    }
+  }
   for (let y = BOUNDS.y0 - 20; y < BOUNDS.y1 + 40; y += 70 + rnd() * 40) {
     props.push({ type: 'tree', x: BOUNDS.x0 - 70 - rnd() * 40, y, s: 0.8 + rnd() * 0.4, seed: rnd(), r: 0 });
     props.push({ type: 'tree', x: BOUNDS.x1 + 70 + rnd() * 40, y, s: 0.8 + rnd() * 0.4, seed: rnd(), r: 0 });

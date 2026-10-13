@@ -10,6 +10,13 @@ export class FX {
     this.rings = [];
     this.texts = [];
     this.lights = [];
+    this.impacts = [];
+  }
+
+  // 命中瞬间的十字星闪光
+  impact(x, y, z, color, size = 1) {
+    this.impacts.push({ x, y, z, color, size, rot: Math.random() * Math.PI, life: 0.14, max: 0.14 });
+    this.burst(x, y, z, color, 6, { speed: 260 * size, life: 0.25, size: 2.2, type: 'streak', drag: 6 });
   }
 
   update(dt) {
@@ -39,6 +46,8 @@ export class FX {
     this.rings = this.rings.filter((r) => r.life > 0);
     for (const t of this.texts) { t.life -= dt; t.z += t.vz * dt; t.vz *= 1 - 3 * dt; }
     this.texts = this.texts.filter((t) => t.life > 0);
+    for (const m of this.impacts) m.life -= dt;
+    this.impacts = this.impacts.filter((m) => m.life > 0);
     for (const l of this.lights) l.life -= dt;
     this.lights = this.lights.filter((l) => l.life > 0);
     if (this.parts.length > 1800) this.parts.splice(0, this.parts.length - 1800);
@@ -68,6 +77,22 @@ export class FX {
 
   ring(x, y, r0, r1, color, { dur = 0.4, width = 4, fill = false } = {}) {
     this.rings.push({ x, y, r0, r1, color, life: dur, max: dur, width, fill });
+  }
+
+  // 同一目标短时间内的伤害合并成一个数字，避免数字堆叠
+  damage(target, amount, color, size) {
+    const t = this.texts.find((q) => q.key === target.id && q.color === color && q.max - q.life < 0.35);
+    if (t) {
+      t.value += amount;
+      t.str = String(t.value);
+      t.life = t.max;
+      t.size = Math.min(size * 1.5, Math.max(t.size, size + Math.log2(1 + t.value / 60) * 3));
+      return;
+    }
+    this.text(target.x, target.y, (target.height || 60) + 14, String(amount), color, size);
+    const q = this.texts[this.texts.length - 1];
+    q.key = target.id;
+    q.value = amount;
   }
 
   text(x, y, z, str, color, size = 18) {
@@ -119,10 +144,47 @@ export class FX {
       const a = Math.min(1, p.life / p.max * 1.5);
       ctx.globalAlpha = a;
       ctx.fillStyle = p.color;
+      const px = p.x, py = p.y * YS - p.z;
+      if (p.type === 'streak') {
+        // 沿速度方向拉长的火花
+        ctx.strokeStyle = p.color;
+        ctx.lineWidth = p.size;
+        ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px - p.vx * 0.04, py - (p.vy * YS - p.vz) * 0.04); ctx.stroke();
+        continue;
+      }
+      if (p.type === 'shard') {
+        const s = p.size * 1.4, r = p.life * 20;
+        ctx.save(); ctx.translate(px, py); ctx.rotate(r);
+        ctx.beginPath(); ctx.moveTo(0, -s * 1.6); ctx.lineTo(s * 0.7, 0); ctx.lineTo(0, s * 1.6); ctx.lineTo(-s * 0.7, 0); ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+        continue;
+      }
       const sz = p.type === 'ember' ? p.size * a : p.size;
       ctx.beginPath();
-      ctx.arc(p.x, p.y * YS - p.z, Math.max(0.5, sz), 0, Math.PI * 2);
+      ctx.arc(px, py, Math.max(0.5, sz), 0, Math.PI * 2);
       ctx.fill();
+    }
+    for (const m of this.impacts) {
+      const k = m.life / m.max;
+      const s = (1.4 - k * 0.6) * 26 * m.size;
+      ctx.save();
+      ctx.translate(m.x, m.y * YS - m.z);
+      ctx.rotate(m.rot);
+      ctx.globalAlpha = k;
+      for (const [col, sc] of [[m.color, 1], ['#ffffff', 0.55]]) {
+        ctx.fillStyle = col;
+        ctx.beginPath();
+        for (let i = 0; i < 8; i++) {
+          const a = (i / 8) * Math.PI * 2;
+          const rr = (i % 2 ? 0.18 : 1) * s * sc * (i % 4 === 0 ? 1 : 0.65);
+          ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+        }
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
     }
     ctx.restore();
     ctx.save();
@@ -186,30 +248,35 @@ function drawSlash(ctx, s) {
   ctx.save();
   ctx.translate(s.x, s.y * YS - s.z);
   ctx.scale(1, YS);
-  // 刀光沿弧线扫过：随时间推进的弧段
   const sweep = s.arc;
-  const head = -sweep / 2 + sweep * Math.min(1, k * 1.6);
-  const a0 = s.angle + s.dir * -sweep / 2;
-  const a1 = s.angle + s.dir * head;
+  const head = Math.min(1, k * 1.7);
+  const tail = Math.max(0, k * 1.7 - 0.55);
+  const N = 14;
   const r = s.radius;
-  const w = s.width * (0.4 + 0.6 * a);
+  for (let i = 0; i < N; i++) {
+    const u0 = tail + ((head - tail) * i) / N, u1 = tail + ((head - tail) * (i + 1)) / N;
+    if (u1 <= u0) continue;
+    const a0 = s.angle + s.dir * (-sweep / 2 + sweep * u0);
+    const a1 = s.angle + s.dir * (-sweep / 2 + sweep * u1);
+    const f = (i + 1) / N;
+    const w = s.width * (0.25 + 0.75 * f) * (0.5 + 0.5 * a);
+    ctx.globalAlpha = a * (0.25 + 0.75 * f);
+    ctx.beginPath();
+    ctx.arc(0, 0, r, a0, a1, s.dir < 0);
+    ctx.arc(0, 0, r - w, a1, a0, s.dir > 0);
+    ctx.closePath();
+    ctx.fillStyle = s.color;
+    ctx.fill();
+  }
+  // 白色刃芯
+  const h0 = s.angle + s.dir * (-sweep / 2 + sweep * Math.max(tail, head - 0.35));
+  const h1 = s.angle + s.dir * (-sweep / 2 + sweep * head);
   ctx.globalAlpha = a;
   ctx.beginPath();
-  if (s.dir > 0) {
-    ctx.arc(0, 0, r, a0, a1, false);
-    ctx.arc(0, 0, r - w, a1, a0, true);
-  } else {
-    ctx.arc(0, 0, r, a0, a1, true);
-    ctx.arc(0, 0, r - w, a1, a0, false);
-  }
-  ctx.closePath();
-  ctx.fillStyle = s.color;
-  ctx.fill();
-  ctx.globalAlpha = a * 0.9;
-  ctx.beginPath();
-  ctx.arc(0, 0, r - 1, a0, a1, s.dir < 0);
-  ctx.strokeStyle = '#fff6e0';
-  ctx.lineWidth = 2.5;
+  ctx.arc(0, 0, r - 2, h0, h1, s.dir < 0);
+  ctx.strokeStyle = '#fffbea';
+  ctx.lineWidth = 3.5;
+  ctx.lineCap = 'round';
   ctx.stroke();
   ctx.restore();
 }
