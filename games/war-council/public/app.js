@@ -34,18 +34,37 @@ const DISPLAY = '"Cinzel", "Trajan Pro", Georgia, serif';
 const BODY = '"Spectral", Georgia, serif';
 
 // ---------- data ----------
-const es = new EventSource('/api/stream');
-es.addEventListener('init', (e) => {
-  init = JSON.parse(e.data);
+// The UI talks to the battle through a transport: the Node server over SSE by
+// default, or an in-page battle (the web edition sets window.WC_TRANSPORT).
+function serverTransport() {
+  const post = (path, body) => fetch(path, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined,
+  });
+  return {
+    connect(onInit, onState) {
+      const es = new EventSource('/api/stream');
+      es.addEventListener('init', (e) => onInit(JSON.parse(e.data)));
+      es.onmessage = (e) => onState(JSON.parse(e.data));
+    },
+    order: (to, text) => post('/api/order', { to, text }),
+    pause: () => post('/api/pause'),
+    reset: () => post('/api/reset'),
+    viewUrl: (id) => `/api/view/${id}.png`,
+  };
+}
+const transport = window.WC_TRANSPORT ?? serverTransport();
+
+transport.connect((data) => {
+  init = data;
   resize();
   renderRecipients();
-});
-es.onmessage = (e) => {
-  const next = JSON.parse(e.data);
+}, (next) => {
   ingest(next);
   state = next;
   renderPanels();
-};
+});
+const brainLabel = () => state?.brain?.label ?? 'Decision model';
+const srcLabel = (src) => (src === 'llm' ? brainLabel() : SRC[src] || src);
 
 function ingest(next) {
   const now = performance.now();
@@ -500,13 +519,20 @@ $('#order').addEventListener('submit', async (ev) => {
   const text = $('#text').value.trim();
   if (!text) return;
   $('#text').value = '';
-  await fetch('/api/order', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to, text }) });
+  await transport.order(to, text);
 });
-$('#pause').onclick = () => fetch('/api/pause', { method: 'POST' });
-$('#reset').onclick = () => { if (confirm('Restart this battle?')) restart(); };
+$('#pause').onclick = () => transport.pause();
+// Restart asks for a second click instead of a confirm() dialog.
+let resetArmed = null;
+$('#reset').onclick = () => {
+  const btn = $('#reset');
+  if (resetArmed) { clearTimeout(resetArmed); resetArmed = null; btn.classList.remove('armed'); btn.textContent = '↻'; restart(); return; }
+  btn.classList.add('armed'); btn.textContent = 'Restart?';
+  resetArmed = setTimeout(() => { resetArmed = null; btn.classList.remove('armed'); btn.textContent = '↻'; }, 3000);
+};
 $('#again').onclick = () => restart();
 function restart() {
-  fetch('/api/reset', { method: 'POST' });
+  transport.reset();
   setRecipient('all');
   showTab('chat');
 }
@@ -548,12 +574,14 @@ function renderTop() {
   const b = state.brain;
   const blue = b.usingLLM ? (b.lastError ? 'warn' : 'ok') : 'warn';
   const chips = [
-    `<span class="chip ${blue}" title="${esc(b.lastError || b.baseUrl)}"><i class="dot"></i>Blue · ${b.usingLLM ? 'Decision model' : 'Rule fallback'}</span>`,
-    `<span class="chip ${b.enemies === 'model' ? blue : 'warn'}"><i class="dot"></i>Red · ${b.enemies === 'model' ? 'Decision model' : 'Scripted AI'}</span>`,
+    `<span class="chip ${blue}" title="${esc(b.lastError || b.baseUrl)}"><i class="dot"></i>Blue · ${b.usingLLM ? brainLabel() : 'Rule fallback'}</span>`,
+    `<span class="chip ${b.enemies === 'model' ? blue : 'warn'}"><i class="dot"></i>Red · ${b.enemies === 'model' ? brainLabel() : 'Scripted AI'}</span>`,
   ];
   if (b.usingLLM) chips.push(`<span class="chip" title="${b.llmCalls} calls, ${b.llmFailures} failed">${esc(b.model)}${b.images ? ' · vision' : ''}${b.latencyMs ? ` · ${b.latencyMs}ms` : ''}</span>`);
   const html = chips.join('');
   if ($('#brain').innerHTML !== html) $('#brain').innerHTML = html;
+  const note = $('#note');
+  if (note) { note.textContent = b.note || ''; note.hidden = !b.note; }
 }
 
 let generalsKey = '';
@@ -581,8 +609,8 @@ function renderGenerals(force) {
       <div class="gen-head">
         <span class="gen-name">${esc(u.name)}</span><span class="gen-title">${esc(u.title)} · ${KIND_LABEL[u.kind]}</span>
         <span class="spacer"></span>
-        ${u.alive ? `<a class="view" href="/api/view/${u.id}.png" target="_blank" title="The battlefield image the model sees right now">Model view</a>` : ''}
-        ${u.brainSource ? `<span class="tag ${u.brainSource}">${SRC[u.brainSource] || u.brainSource}</span>` : ''}
+        ${u.alive && transport.viewUrl ? `<a class="view" href="${transport.viewUrl(u.id)}" target="_blank" title="The battlefield image the model sees right now">Model view</a>` : ''}
+        ${u.brainSource ? `<span class="tag ${u.brainSource}">${srcLabel(u.brainSource)}</span>` : ''}
       </div>
       <div class="stats">
         ${stat('Troops', u.troops, u.maxTroops, '#7fd39a')}
@@ -616,7 +644,7 @@ function renderChat() {
     return `<div class="msg ${player ? 'player' : ''}">
       <div class="avatar">${player ? '★' : esc(glyphOf({ name: m.name }))}</div>
       <div class="bubble"><div class="meta"><b>${esc(m.name)}</b>${m.to !== 'all' ? `→ ${esc(nameOf(m.to))} ` : ''}· ${m.tick}
-        ${m.source && m.source !== 'llm' ? `<span class="src">${SRC[m.source]}</span>` : ''}</div>
+        ${m.source && m.source !== 'llm' ? `<span class="src">${srcLabel(m.source)}</span>` : ''}</div>
       <div class="text">${esc(m.text)}</div></div></div>`;
   }).join('');
   if (atBottom) chat.scrollTop = chat.scrollHeight;
@@ -639,7 +667,7 @@ function renderReview() {
   if (!over) return;
   const reds = state.units.filter((u) => u.side === 'enemy');
   $('#review').innerHTML = `<p class="rv t">The battle is over. Here is how the Red army was deployed and what it decided:</p>` + reds.map((u) => `
-    <div class="rv"><b>${esc(u.id)} ${esc(u.name)}</b> (${KIND_LABEL[u.kind].toLowerCase()}) ${u.alive ? `${u.troops} troops left` : 'wiped out'} · ${u.brainSource ? SRC[u.brainSource] : 'Scripted'}<br />
+    <div class="rv"><b>${esc(u.id)} ${esc(u.name)}</b> (${KIND_LABEL[u.kind].toLowerCase()}) ${u.alive ? `${u.troops} troops left` : 'wiped out'} · ${u.brainSource ? srcLabel(u.brainSource) : 'Scripted'}<br />
     <span class="t">Last decision: </span>${esc(describe(u.action))}${u.thought ? `<br /><span class="t">${esc(u.thought)}</span>` : ''}</div>`).join('');
 }
 

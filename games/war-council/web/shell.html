@@ -1,0 +1,53 @@
+<title>War Council</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Spectral:ital,wght@0,400;0,600;1,400&display=swap" />
+<style>
+/*{{STYLE}}*/
+/* web edition */
+:root { color-scheme: dark; }
+html, body { background: var(--bg); }
+#intro {
+  position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 16px;
+  background: radial-gradient(circle at 50% 30%, rgba(38, 32, 23, .94), rgba(12, 10, 7, .97));
+}
+.intro-card {
+  width: min(560px, 100%); max-height: 100%; overflow: auto; padding: 28px 28px 24px; border-radius: 14px;
+  background: linear-gradient(180deg, var(--panel-2), var(--panel)); border: 1px solid var(--line);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .6); display: grid; gap: 14px;
+}
+.intro-card h2 { margin: 0; font: 700 34px/1.1 var(--display); letter-spacing: 2px; text-wrap: balance; }
+.intro-card .lede { margin: 0; color: var(--ink-2); font-size: 15px; }
+.intro-card ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; color: var(--ink-2); }
+.intro-card code { font-family: var(--serif); font-style: italic; color: var(--gold); }
+.intro-card .fine { margin: 0; font-size: 12px; color: var(--muted); }
+#begin {
+  justify-self: start; padding: 10px 26px; border-radius: 999px; border: 0;
+  background: linear-gradient(180deg, #e2b866, #b98a35); color: #1d150a; font: 700 15px var(--display); letter-spacing: 2px;
+}
+#begin:hover, #begin:focus-visible { filter: brightness(1.08); outline: 2px solid var(--gold); outline-offset: 3px; }
+#note { margin: 0; font-size: 12px; color: var(--amber); }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+
+<div id="intro">
+  <div class="intro-card">
+    <div class="seal">W<br />C</div>
+    <h2>War Council</h2>
+    <p class="lede">Command three generals in a real-time battle. Each order you send is read by Claude, which decides how every general responds and how the Red army answers.</p>
+    <ul>
+      <li>Take the Red banner at (21,8) and hold it for 3 turns, or rout every Red unit.</li>
+      <li>Give orders in plain English, such as <code>Old Qin, hold the middle bridge (12,8)</code> or <code>Huo Lie, hit E2 from the north bridge!</code></li>
+      <li>Your tone counts. Praise raises a general's morale and bond; insults can make them refuse you.</li>
+      <li>Click the map to insert a coordinate, click an enemy to insert its ID, click a general to address them alone.</li>
+    </ul>
+    <p class="fine">Orders use your own Claude usage, and the first order asks your permission. If Claude is unavailable, a simple rule engine and a scripted enemy play instead.</p>
+    <button id="begin" type="button">Begin battle</button>
+  </div>
+</div>
+
+<!--{{BODY}}-->
+
+<script type="module">
+//{{SCRIPT}}
+</script>

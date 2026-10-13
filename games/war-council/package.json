@@ -4,11 +4,14 @@
   "description": "Real-time tactics game whose generals are driven by a language model.",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "start": "node server.js",
     "sim": "node cli.js --fast",
     "check-llm": "node check-llm.js",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "build:web": "node web/build.mjs"
   }
 }

@@ -88,6 +88,7 @@ h1 { margin: 0; font: 700 24px/1 var(--display); letter-spacing: 3px; color: var
   transition: border-color .15s, color .15s, background .15s;
 }
 .icon:hover { border-color: var(--gold); color: var(--gold); }
+.icon.armed { width: auto; padding: 0 10px; border-color: var(--red); color: #f1a596; font-size: 12px; }
 
 /* ---------- layout ---------- */
 .layout {

@@ -67,6 +67,21 @@ line:   Words like that and I would ride through fire! Understood. March to (12,
 保证游戏能玩。界面上每条决策都有来源标签：`决策模型` / `规则后备` / `调用失败`，不会把规则引擎的决策冒充成模型的。
 `BRAIN_MODE=llm` 只用模型（失败时显示错误）；`BRAIN_MODE=heuristic` 只用规则。`LLM_IMAGES=0` 可以关掉图片输入做对比。
 
+## 网页版（点开即玩）
+
+在线地址：https://claude.ai/artifact/YJWVvNHmEpgaeN7MPkgUep （发布在 claude.ai，默认仅自己可见，可在页面的 Share 菜单里分享）。
+
+网页版整局战斗在浏览器里运行。发布的页面不能访问外部主机（`api.subq.ai` 也被页面安全策略拦截），也不能放 API Key，
+所以网页版改由 **Claude** 通过 artifact 的 `sample` 能力驱动双方，用的是玩家自己的 Claude 额度，首次下令时会请求授权：
+
+- 每次你下令时调用 Claude（不在定时器里调用）：一次决定收令的蓝军将领（选项、真正由模型写的台词、服从度、士气/羁绊变化），
+  一次让红军每支部队按红方视野重新部署；两次调用都附带该方视野的战场图片；
+- 某方还在思考时收到的新命令会合并进它的下一次调用；
+- Claude 不可用、被拒绝或限流时，蓝军退回规则引擎、红军退回脚本 AI，界面上标明来源。
+
+源码在 `web/`（`claude-council.js` 是 Claude 大脑，`local-transport.js` 在页面内跑战斗循环），
+`npm run build:web` 把引擎、战术模块和界面打包成单个页面 `web/dist/war-council.html`。
+
 ## 运行（在云端或本地）
 
 需要 Node 18+（在需要 HTTPS 代理的环境里，如 Claude Code 云端，需 Node 22.21+），**没有任何 npm 依赖**。没有浏览器连接时战局自动暂停，不会空耗模型调用。
