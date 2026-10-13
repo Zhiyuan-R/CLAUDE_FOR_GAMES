@@ -51,12 +51,12 @@ export function drawHUD(ctx, game, R, t) {
   ctx.fillText(`${mm}:${String(ss).padStart(2, '0')}`, cx, 14 + 24 * s);
   ctx.font = `500 ${11 * s}px ${FONT}`;
   ctx.fillStyle = '#9f97bf';
-  ctx.fillText(`下一波小兵 ${Math.max(0, Math.ceil(game.waveT))}s`, cx, 14 + 46 * s);
+  ctx.fillText(`Next wave ${Math.max(0, Math.ceil(game.waveT))}s`, cx, 14 + 46 * s);
   // 团队增益
   const tb = game.teamBuffs[p.team];
   const buffs = [];
-  if (tb.dragon > 0) buffs.push(['龙魂 伤害+15%', '#ff9a40', tb.dragon]);
-  if (tb.colossus > 0) buffs.push(['巨像 减伤+15%', '#e0c080', tb.colossus]);
+  if (tb.dragon > 0) buffs.push(['Dragon Soul +15% dmg', '#ff9a40', tb.dragon]);
+  if (tb.colossus > 0) buffs.push(['Colossus Ward +15% armor', '#e0c080', tb.colossus]);
   buffs.forEach(([txt, col, tl], i) => {
     ctx.font = `700 ${11 * s}px ${FONT}`;
     ctx.fillStyle = col;
@@ -124,7 +124,7 @@ export function drawHUD(ctx, game, R, t) {
     ctx.fillText(`${Math.ceil(p.respawnT)}`, W / 2, H / 2);
     ctx.font = `600 ${16 * s}px ${FONT}`;
     ctx.fillStyle = '#b9b0d8';
-    ctx.fillText('秒后复活', W / 2, H / 2 + 30 * s);
+    ctx.fillText('until respawn', W / 2, H / 2 + 30 * s);
     ctx.restore();
   }
 }
@@ -179,7 +179,7 @@ function playerPanel(ctx, h, x, y, s) {
   const nw = ctx.measureText(h.name).width;
   ctx.font = `600 ${11 * s}px ${FONT}`;
   ctx.fillStyle = '#7dffb0';
-  ctx.fillText(`你 · ${h.def.role} · ${h.game.roleName(h)}`, x + 74 * s + nw + 8 * s, y + 24 * s);
+  ctx.fillText(`You · ${h.def.role} · ${h.game.roleName(h)}`, x + 74 * s + nw + 8 * s, y + 24 * s);
   const bw = w - 90 * s, bx = x + 74 * s, by = y + 33 * s, bh = 12 * s;
   hpBarScreen(ctx, bx, by, bw, bh, Math.max(0, h.hp / h.maxHp));
   if (h.shield > 0) { ctx.fillStyle = 'rgba(255,229,138,0.85)'; ctx.fillRect(bx, by + bh - 3 * s, bw * Math.min(1, h.shield / h.maxHp), 3 * s); }
@@ -190,18 +190,18 @@ function playerPanel(ctx, h, x, y, s) {
   ctx.font = `600 ${10.5 * s}px ${FONT}`;
   ctx.fillStyle = '#a79fc8';
   ctx.textAlign = 'left';
-  ctx.fillText(`击杀 ${h.stats.kills}  死亡 ${h.stats.deaths}  助攻 ${h.stats.assists}  补刀 ${h.stats.cs}`, bx, y + 60 * s);
+  ctx.fillText(`K ${h.stats.kills}  D ${h.stats.deaths}  A ${h.stats.assists}  CS ${h.stats.cs}`, bx, y + 60 * s);
   // 属性汇总
   const a = sumStats(h.items);
   const parts = Object.entries(a).filter(([, v]) => v > 0).map(([k, v]) => STAT_LABEL[k](Math.round(v * 100) / 100));
   ctx.fillStyle = '#d0c6f0';
   ctx.font = `600 ${10 * s}px ${FONT}`;
-  ctx.fillText(parts.length ? parts.slice(0, 4).join('  ') : `被动「${h.def.passiveName}」${h.def.passiveDesc}`.slice(0, 34), bx, y + 76 * s);
+  ctx.fillText(parts.length ? parts.slice(0, 3).join('  ') : `Passive · ${h.def.passiveName}`, bx, y + 76 * s);
   ctx.restore();
 }
 
 function miniRow(ctx, game, h, x, y, s, right) {
-  const w = 210 * s, hgt = 30 * s;
+  const w = 240 * s, hgt = 30 * s;
   const x0 = right ? x - w : x;
   ctx.save();
   panelBg(ctx, x0, y, w, hgt, 8);
@@ -216,9 +216,17 @@ function miniRow(ctx, game, h, x, y, s, right) {
   ctx.fillStyle = '#9f97bf';
   ctx.font = `600 ${9.5 * s}px ${FONT}`;
   ctx.textAlign = right ? 'left' : 'right';
-  ctx.fillText(`${game.roleName(h)} ${h.stats.kills}/${h.stats.deaths}/${h.stats.assists} · 装${h.items.length}`, right ? x0 + 8 * s : x0 + w - 8 * s, y + 13 * s);
-  const bw = w - 44 * s;
-  hpBarScreen(ctx, right ? x0 + 8 * s : x0 + 32 * s, y + 18 * s, bw, 6 * s, h.alive ? Math.max(0, h.hp / h.maxHp) : 0, right);
+  const short = { top: 'TOP', mid: 'MID', bot: 'BOT', support: 'SUP', jungle: 'JGL' }[h.role];
+  ctx.fillText(`${short}  ${h.stats.kills}/${h.stats.deaths}/${h.stats.assists}`, right ? x0 + 8 * s : x0 + w - 8 * s, y + 13 * s);
+  // 血条 + 装备数量小方块（同一行）
+  const bw = w - 84 * s;
+  const barX = right ? x0 + 48 * s : x0 + 32 * s;
+  hpBarScreen(ctx, barX, y + 18 * s, bw, 6 * s, h.alive ? Math.max(0, h.hp / h.maxHp) : 0, right);
+  const pipX = right ? x0 + 8 * s : barX + bw + 6 * s;
+  for (let k = 0; k < 6; k++) {
+    ctx.fillStyle = k < h.items.length ? RARITY[h.items[k].r].color : 'rgba(255,255,255,0.12)';
+    ctx.fillRect(pipX + k * 6 * s, y + 17 * s, 4 * s, 8 * s);
+  }
   ctx.restore();
 }
 
@@ -227,12 +235,12 @@ function skillBar(ctx, h, cx, bottom, s, t) {
   const slots = [
     { key: 'J', name: d.basic.name, cd: 0, max: 1, icon: 'basic' },
     { key: 'K', name: d.charged.name, cd: Math.max(0, h.chargeCd), max: 0.8, icon: 'charge', active: h.state === 'charging' },
-    { key: '空格', name: d.dash.name, cd: Math.max(0, h.dashCd), max: d.dash.cd, icon: 'dash' },
+    { key: 'Spc', name: d.dash.name, cd: Math.max(0, h.dashCd), max: d.dash.cd, icon: 'dash' },
     { key: 'U', name: d.skills[0].name, cd: Math.max(0, h.skillCd[0]), max: d.skills[0].cd, icon: 's1' },
     { key: 'I', name: d.skills[1].name, cd: Math.max(0, h.skillCd[1]), max: d.skills[1].cd, icon: 's2' },
     { key: 'O', name: d.skills[2].name, cd: Math.max(0, h.skillCd[2]), max: d.skills[2].cd, icon: 'ult', ult: true },
-    { key: 'R', name: h.mounted ? '下坐骑' : h.mount.name, cd: Math.max(0, h.mountCd), max: 2.5, icon: 'mount', active: h.mounted || h.state === 'mounting', small: true },
-    { key: 'B', name: '回城', cd: 0, max: 1, icon: 'recall', active: h.state === 'recall', small: true },
+    { key: 'R', name: h.mounted ? 'Dismount' : h.mount.name, cd: Math.max(0, h.mountCd), max: 2.5, icon: 'mount', active: h.mounted || h.state === 'mounting', small: true },
+    { key: 'B', name: 'Recall', cd: 0, max: 1, icon: 'recall', active: h.state === 'recall', small: true },
   ];
   const size = 58 * s, gap = 10 * s;
   const total = slots.reduce((a, sl) => a + (sl.small ? size * 0.78 : size) + gap, -gap);
@@ -297,7 +305,10 @@ function skillBar(ctx, h, cx, bottom, s, t) {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(sl.key, x + 3 * s + kw / 2, sy + 11 * s);
-    ctx.font = `600 ${10.5 * s}px ${FONT}`;
+    // 技能名过长时缩小字号以适配格子宽度
+    let fs = 10.5 * s;
+    ctx.font = `600 ${fs}px ${FONT}`;
+    while (fs > 7 * s && ctx.measureText(sl.name).width > sz + gap - 2) { fs -= 0.5; ctx.font = `600 ${fs}px ${FONT}`; }
     ctx.fillStyle = ready ? '#e2dcf8' : '#8a83a8';
     ctx.fillText(sl.name, x + sz / 2, y + size + 12 * s);
     ctx.restore();
@@ -386,11 +397,11 @@ function minimap(ctx, game, R, right, bottom, s) {
 }
 
 function controlsHint(ctx, x, bottom, s) {
-  const lines = ['WASD 移动 · J 普攻 · 按住 K 蓄力', '空格 穿梭 · U I 技能 · O 大招', 'R 坐骑 · B 回城 · 走过装备自动拾取', '草丛隐身 · 尖刺 / 浅水 / 炸药桶'];
+  const lines = ['WASD move · J attack · hold K charge', 'Space dash · U I skills · O ultimate', 'R mount · B recall · walk over loot', 'Bushes hide you · spikes / water / barrels'];
   ctx.save();
   ctx.font = `600 ${11 * s}px ${FONT}`;
   const lh = 16 * s;
-  const w = 228 * s, h = lines.length * lh + 14 * s;
+  const w = 268 * s, h = lines.length * lh + 14 * s;
   panelBg(ctx, x, bottom - h, w, h, 10);
   ctx.fillStyle = '#b9b0d8';
   ctx.textAlign = 'left';

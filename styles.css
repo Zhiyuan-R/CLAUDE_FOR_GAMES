@@ -5,7 +5,7 @@ html, body {
   overflow: hidden;
   background: #07050f;
   color: #ece6ff;
-  font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans SC", system-ui, sans-serif;
+  font-family: "Trebuchet MS", "Segoe UI", system-ui, -apple-system, sans-serif;
 }
 canvas { display: block; }
 
@@ -29,7 +29,7 @@ h1 {
   margin: 6px 0;
   font-size: clamp(40px, 7vw, 72px);
   font-weight: 900;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.02em;
   background: linear-gradient(180deg, #fff6dc, #ffb85c 55%, #d6532c);
   -webkit-background-clip: text;
   background-clip: text;
@@ -51,7 +51,7 @@ h2 small { color: #7f77a3; font-weight: 500; margin-left: 8px; }
 .hero-btn:hover { border-color: rgba(160, 140, 230, 0.45); }
 .hero-btn.active { border-color: var(--c2); box-shadow: 0 0 0 1px var(--c2), 0 6px 24px -8px var(--c); }
 .hero-btn .pt { width: 100%; max-width: 92px; aspect-ratio: 1; border-radius: 8px; display: block; }
-.hero-btn .nm { font-weight: 800; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.hero-btn .nm { font-weight: 800; font-size: 11px; letter-spacing: -0.01em; line-height: 1.15; text-align: center; min-height: 2.3em; display: flex; align-items: center; justify-content: center; max-width: 100%; }
 .hero-btn .rl { font-size: 11px; color: var(--c2); }
 .sigil {
   width: 30px; height: 30px; border-radius: 50%;
@@ -72,7 +72,7 @@ h2 small { color: #7f77a3; font-weight: 500; margin-left: 8px; }
 .hero-en { font-size: 12px; color: var(--c2); }
 .hero-blurb { color: #b9b0d8; font-size: 13px; margin: 10px 0; line-height: 1.5; }
 .kit { list-style: none; padding: 0; margin: 0; display: grid; gap: 7px; }
-.kit li { display: grid; grid-template-columns: 44px 76px 1fr; gap: 6px; align-items: baseline; font-size: 12px; }
+.kit li { display: grid; grid-template-columns: 58px 118px 1fr; gap: 8px; align-items: baseline; font-size: 12px; }
 .kit b { color: #efe9ff; }
 .kit span { color: #9f97bf; line-height: 1.4; }
 .stats { display: flex; gap: 14px; margin-top: 10px; font-size: 12px; color: #8a83a8; }

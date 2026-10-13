@@ -13,7 +13,7 @@ export const BLUE = 0;
 export const RED = 1;
 export const NEUTRAL = 2;
 export const TEAM_COLORS = ['#4fb0ff', '#ff4d5e', '#c9b07a'];
-export const TEAM_NAMES = ['蓝方', '红方', '中立'];
+export const TEAM_NAMES = ['Blue', 'Red', 'Neutral'];
 
 // 以地图中心点对称，保证双方地形公平
 export const mirror = (x, y) => ({ x: WORLD.w - x, y: WORLD.h - y });
@@ -26,4 +26,4 @@ export const FIRST_WAVE = 6;
 export const WAVE_INTERVAL = 30;
 export const RECALL_TIME = 4;
 
-export const FONT = '"PingFang SC","Microsoft YaHei","Noto Sans CJK SC","Noto Sans SC",system-ui,sans-serif';
+export const FONT = '"Trebuchet MS","Segoe UI",system-ui,-apple-system,sans-serif';

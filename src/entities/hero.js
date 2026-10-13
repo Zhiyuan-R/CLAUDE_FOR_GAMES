@@ -270,7 +270,7 @@ export class Hero extends Unit {
       const i = b === 's1' ? 0 : b === 's2' ? 1 : 2;
       this.buffer = null;
       if (this.skillCd[i] <= 0) this.castSkill(i);
-      else if (this === this.game.player) this.game.fx.text(this.x, this.y, 90, '冷却中', '#a9a3c9', 13);
+      else if (this === this.game.player) this.game.fx.text(this.x, this.y, 90, 'On cooldown', '#a9a3c9', 13);
       return;
     }
     if (b === 'attack') {

@@ -336,9 +336,9 @@ export class Renderer {
       const top = h.def.head === 'hat' ? 92 : 76;
       const y = h.y * YS - h.z - top * h.def.size * (h.buffs.avatar > 0 ? 1.35 : 1) - (h.mounted ? 36 : 0);
       // 自己在草丛里时提示已隐蔽
-      if (h.team === pl.team && bushAt(h.x, h.y) >= 0 && h.revealT <= 0) { ctx.fillStyle = '#9be26a'; ctx.font = `800 ${11 / Math.max(1, zoom * 0.7)}px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText('隐蔽中', h.x, y - 18); }
+      if (h.team === pl.team && bushAt(h.x, h.y) >= 0 && h.revealT <= 0) { ctx.fillStyle = '#9be26a'; ctx.font = `800 ${11 / Math.max(1, zoom * 0.7)}px ${FONT}`; ctx.textAlign = 'center'; ctx.fillText('Hidden', h.x, y - 18); }
       const ghost = this.trackGhost(h);
-      hpBar(ctx, h.x, y, 64, h.hp / h.maxHp, tc, zoom, { label: h === pl ? '你' : h.name, ghost });
+      hpBar(ctx, h.x, y, 64, h.hp / h.maxHp, tc, zoom, { label: h === pl ? 'You' : h.name, ghost });
       if (h.shield > 0) {
         ctx.fillStyle = 'rgba(255,229,138,0.9)';
         ctx.fillRect(h.x - 32, y + 8 / Math.max(1, zoom * 0.7), 64 * Math.min(1, h.shield / h.maxHp * 2), 2.5);
@@ -385,7 +385,7 @@ export class Renderer {
     for (const tw of game.towers) {
       if (!tw.alive || !inView(tw)) continue;
       const y = tw.y * YS - tw.height - 52;
-      hpBar(ctx, tw.x, y, tw.kind === 'core' ? 110 : 90, tw.hp / tw.maxHp, TEAM_COLORS[tw.team], zoom, { label: tw.kind === 'core' ? '基地水晶' : tw.tier === 'inner' ? '内塔' : '外塔', ghost: this.trackGhost(tw) });
+      hpBar(ctx, tw.x, y, tw.kind === 'core' ? 110 : 90, tw.hp / tw.maxHp, TEAM_COLORS[tw.team], zoom, { label: tw.kind === 'core' ? 'Nexus Crystal' : tw.tier === 'inner' ? 'Inner Tower' : 'Outer Tower', ghost: this.trackGhost(tw) });
     }
     // 地上装备名称
     ctx.save();

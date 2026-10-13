@@ -278,7 +278,7 @@ const D = (p, k) => (p.power || 1) * k;
 export const SKILL = {
   dashStrike: (p) => ({
     cd: 6, castTime: 0.24, aiRange: 300, aimRange: 330, ai: 'enemy',
-    desc: `向前突进，${EL[p.el].w}灼烧沿途敌人并留下持续伤害的轨迹。`,
+    desc: `Dash forward, scorching enemies in your path with ${EL[p.el].w} and leaving a damaging trail.`,
     fn(h, g) {
       const time = 0.22, c = EL[p.el].c;
       h.impulse(340 / time, time);
@@ -297,7 +297,7 @@ export const SKILL = {
   }),
   aura: (p) => ({
     cd: 12, castTime: 0.2, aiRange: 140, ai: 'self',
-    desc: `召唤环绕自身的${EL[p.el].w}旋风 3.5 秒，持续伤害周围敌人，移速提升 25%。`,
+    desc: `Surround yourself with a ${EL[p.el].w} whirlwind for 3.5s, damaging nearby enemies and gaining 25% move speed.`,
     fn(h, g) {
       h.buffs.haste = 3.5;
       play(p.el);
@@ -307,7 +307,7 @@ export const SKILL = {
   }),
   chain: (p) => ({
     cd: 5, castTime: 0.26, aiRange: 430, aimRange: 470, ai: 'enemy',
-    desc: `向前方敌人释放${EL[p.el].w}闪电，最多弹射 3 个目标并减速。`,
+    desc: `Unleash ${EL[p.el].w} lightning at an enemy ahead that bounces up to 3 targets and slows them.`,
     fn(h, g) {
       const c = EL[p.el].c;
       const first = pickTarget(h, g, 470);
@@ -337,7 +337,7 @@ export const SKILL = {
   }),
   storm: (p) => ({
     cd: 13, castTime: 0.35, aiRange: 380, aimRange: 420, ai: 'enemy',
-    desc: `在前方召唤 3.2 秒${EL[p.el].w}风暴，随机打击区域内的敌人。`,
+    desc: `Summon a ${EL[p.el].w} storm ahead for 3.2s that strikes enemies inside at random.`,
     fn(h, g) {
       const q = ahead(h, 300), c = EL[p.el].c;
       play(p.el);
@@ -359,7 +359,7 @@ export const SKILL = {
   }),
   trap: (p) => ({
     cd: 7, castTime: 0.2, aiRange: 160, ai: 'enemy',
-    desc: `在前方布置${EL[p.el].w}陷阱（最多 2 个），敌人踩中后定身 1.3 秒。`,
+    desc: `Place a ${EL[p.el].w} trap ahead (max 2). Enemies who step on it are rooted for 1.3s.`,
     fn(h, g) {
       const q = ahead(h, 80), c = EL[p.el].c;
       const mine = g.zones.filter((z) => z.kind === 'trap' && z.owner === h && z.alive);
@@ -386,7 +386,7 @@ export const SKILL = {
   }),
   novaLeap: (p) => ({
     cd: 10, castTime: 0.12, aiRange: 170, ai: 'escape',
-    desc: `原地引爆${EL[p.el].w}新星并强力减速，同时向后跃起拉开距离。`,
+    desc: `Detonate a ${EL[p.el].w} nova that heavily slows, then leap backward to escape.`,
     fn(h, g) {
       const c = EL[p.el].c;
       play(p.el);
@@ -401,7 +401,7 @@ export const SKILL = {
   }),
   meteor: (p) => ({
     cd: 11, castTime: 0.4, aiRange: 420, aimRange: 460, ai: 'enemy',
-    desc: `召唤${EL[p.el].w}陨石，0.9 秒后砸向前方区域，造成大范围重创。`,
+    desc: `Call down a ${EL[p.el].w} meteor that crashes into the area ahead after 0.9s for massive damage.`,
     fn(h, g) {
       const t = pickTarget(h, g, 460, 0.6);
       const q = t ? { x: t.x, y: t.y } : ahead(h, 340);
@@ -422,7 +422,7 @@ export const SKILL = {
   }),
   boomerang: (p) => ({
     cd: 6, castTime: 0.2, aiRange: 420, ai: 'enemy',
-    desc: `掷出${EL[p.el].w}回旋刃，去程与回程各造成一次伤害。`,
+    desc: `Throw a ${EL[p.el].w} boomerang blade that damages on the way out and on the way back.`,
     fn(h, g) {
       const c = EL[p.el].c;
       play(p.el);
@@ -442,7 +442,7 @@ export const SKILL = {
   }),
   hook: (p) => ({
     cd: 9, castTime: 0.3, aiRange: 480, ai: 'enemy',
-    desc: `掷出${EL[p.el].w}锁链，命中第一个敌人后将其拉到身前。`,
+    desc: `Throw a ${EL[p.el].w} chain that drags the first enemy hit to you.`,
     fn(h, g) {
       const c = EL[p.el].c;
       sfx.arrow();
@@ -461,7 +461,7 @@ export const SKILL = {
   }),
   slam: (p) => ({
     cd: 8, castTime: 0.35, aiRange: 150, ai: 'enemy',
-    desc: `${EL[p.el].w}重击前方地面，造成伤害并眩晕 1 秒。`,
+    desc: `Smash the ground ahead with ${EL[p.el].w} force, damaging and stunning for 1s.`,
     fn(h, g) {
       const c = EL[p.el].c;
       g.after(0.15, () => {
@@ -477,7 +477,7 @@ export const SKILL = {
   }),
   whirlwind: (p) => ({
     cd: 9, castTime: 0.1, aiRange: 130, ai: 'self',
-    desc: `化身${EL[p.el].w}旋风 1.6 秒，期间可以移动并持续绞杀周围敌人。`,
+    desc: `Become a ${EL[p.el].w} cyclone for 1.6s, moving freely while shredding nearby enemies.`,
     fn(h, g) {
       const c = EL[p.el].c;
       h.buffs.whirl = 1.6;
@@ -490,7 +490,7 @@ export const SKILL = {
   }),
   shadowStrike: (p) => ({
     cd: 8, castTime: 0.15, aiRange: 420, aimRange: 450, ai: 'enemy',
-    desc: `瞬移到前方敌人身后发动${EL[p.el].w}背刺，造成高额伤害并减速。`,
+    desc: `Blink behind an enemy ahead for a ${EL[p.el].w} backstab that deals heavy damage and slows.`,
     fn(h, g) {
       const t = pickTarget(h, g, 450, 0.8);
       const c = EL[p.el].c;
@@ -504,7 +504,7 @@ export const SKILL = {
   }),
   arrowRain: (p) => ({
     cd: 10, castTime: 0.3, aiRange: 450, aimRange: 480, ai: 'enemy',
-    desc: `向前方区域降下 2.2 秒${EL[p.el].w}箭雨，持续伤害并减速。`,
+    desc: `Rain ${EL[p.el].w} arrows over the area ahead for 2.2s, damaging and slowing enemies.`,
     fn(h, g) {
       const t = pickTarget(h, g, 480, 0.6);
       const q = t ? { x: t.x, y: t.y } : ahead(h, 340);
@@ -526,7 +526,7 @@ export const SKILL = {
   }),
   wall: (p) => ({
     cd: 14, castTime: 0.3, aiRange: 260, ai: 'enemy',
-    desc: `在前方升起一道${EL[p.el].w}之墙，阻挡移动与飞行物 4 秒，并伤害墙下敌人。`,
+    desc: `Raise a ${EL[p.el].w} wall ahead that blocks movement and projectiles for 4s and damages enemies beneath it.`,
     fn(h, g) {
       const q = ahead(h, 160), c = EL[p.el].c;
       const px = -h.facing.y, py = h.facing.x;
@@ -543,7 +543,7 @@ export const SKILL = {
   }),
   shield: (p) => ({
     cd: 12, castTime: 0.15, aiRange: 400, ai: 'self',
-    desc: `获得${EL[p.el].w}护盾 4 秒，吸收 260 点伤害，并为附近一名受伤队友提供同样的护盾。`,
+    desc: `Gain a ${EL[p.el].w} shield for 4s that absorbs 260 damage, and give the same shield to a wounded ally nearby.`,
     fn(h, g) {
       const amt = D(p, 260);
       play(p.el);
@@ -555,7 +555,7 @@ export const SKILL = {
   }),
   heal: (p) => ({
     cd: 11, castTime: 0.3, aiRange: 360, ai: 'heal',
-    desc: `释放${EL[p.el].w}之泉，为自身与 320 范围内的队友恢复 220 生命。`,
+    desc: `Release a ${EL[p.el].w} spring that heals you and allies within 320 range for 220 HP.`,
     fn(h, g) {
       const amt = D(p, 220), c = EL[p.el].c;
       sfx.ready();
@@ -571,7 +571,7 @@ export const SKILL = {
   }),
   turret: (p) => ({
     cd: 12, castTime: 0.3, aiRange: 400, ai: 'enemy',
-    desc: `召唤${EL[p.el].w}图腾，持续 7 秒，自动攻击附近敌人。`,
+    desc: `Summon a ${EL[p.el].w} totem for 7s that automatically attacks nearby enemies.`,
     fn(h, g) {
       const q = ahead(h, 70), c = EL[p.el].c;
       play(p.el);
@@ -593,7 +593,7 @@ export const SKILL = {
   }),
   poison: (p) => ({
     cd: 9, castTime: 0.3, aiRange: 400, aimRange: 430, ai: 'enemy',
-    desc: `在前方释放${EL[p.el].w}毒云 4 秒，持续伤害并减速其中的敌人。`,
+    desc: `Release a ${EL[p.el].w} cloud ahead for 4s that damages and slows enemies inside.`,
     fn(h, g) {
       const t = pickTarget(h, g, 430, 0.6);
       const q = t ? { x: t.x, y: t.y } : ahead(h, 300);
@@ -604,7 +604,7 @@ export const SKILL = {
   }),
   charge: (p) => ({
     cd: 9, castTime: 0.05, aiRange: 380, ai: 'enemy',
-    desc: `向前${EL[p.el].w}冲锋，撞到第一个敌人时将其眩晕 1.1 秒并撞飞。`,
+    desc: `Charge forward with ${EL[p.el].w} force. The first enemy you hit is stunned for 1.1s and knocked back.`,
     fn(h, g) {
       const c = EL[p.el].c;
       h.impulse(900, 0.5);
@@ -630,7 +630,7 @@ export const SKILL = {
   }),
   vortex: (p) => ({
     cd: 13, castTime: 0.35, aiRange: 400, aimRange: 430, ai: 'enemy',
-    desc: `在前方制造${EL[p.el].w}漩涡 2.5 秒，不断把敌人吸向中心并造成伤害。`,
+    desc: `Create a ${EL[p.el].w} vortex ahead for 2.5s that keeps pulling enemies to its center and damaging them.`,
     fn(h, g) {
       const t = pickTarget(h, g, 430, 0.6);
       const q = t ? { x: t.x, y: t.y } : ahead(h, 300);
@@ -651,7 +651,7 @@ export const SKILL = {
   }),
   orbitals: (p) => ({
     cd: 12, castTime: 0.15, aiRange: 160, ai: 'self',
-    desc: `召唤 3 枚环绕自身的${EL[p.el].w}飞刃，持续 5 秒，切割接触到的敌人。`,
+    desc: `Summon 3 ${EL[p.el].w} blades that orbit you for 5s, cutting any enemy they touch.`,
     fn(h, g) {
       const c = EL[p.el].c;
       play(p.el);
@@ -675,7 +675,7 @@ export const SKILL = {
   }),
   spear: (p) => ({
     cd: 7, castTime: 0.3, aiRange: 560, ai: 'enemy',
-    desc: `投出${EL[p.el].w}长矛，贯穿直线上的所有敌人并击退。`,
+    desc: `Hurl a ${EL[p.el].w} spear that pierces every enemy in a line and knocks them back.`,
     fn(h, g) {
       const c = EL[p.el].c;
       sfx.arrow();
@@ -684,7 +684,7 @@ export const SKILL = {
   }),
   stealth: (p) => ({
     cd: 14, castTime: 0.1, aiRange: 500, ai: 'self',
-    desc: `隐入${EL[p.el].w} 3 秒，期间无法被选中，移速提升，下一次攻击伤害提升 80%。`,
+    desc: `Fade into ${EL[p.el].w} for 3s: untargetable, faster, and your next attack deals 80% more damage.`,
     fn(h, g) {
       h.stealthT = 3;
       h.buffs.haste = 3;
@@ -695,7 +695,7 @@ export const SKILL = {
   }),
   drain: (p) => ({
     cd: 10, castTime: 0.2, aiRange: 380, aimRange: 420, ai: 'enemy',
-    desc: `用${EL[p.el].w}锁链连接前方敌人 2.5 秒，持续吸取生命。`,
+    desc: `Tether an enemy ahead with a ${EL[p.el].w} chain for 2.5s, draining their life.`,
     fn(h, g) {
       const t = pickTarget(h, g, 420, 0.8);
       const c = EL[p.el].c;
@@ -715,7 +715,7 @@ export const SKILL = {
   }),
   knives: (p) => ({
     cd: 5, castTime: 0.2, aiRange: 320, ai: 'enemy',
-    desc: `向前方扇形掷出 6 把${EL[p.el].w}飞刀。`,
+    desc: `Throw a fan of 6 ${EL[p.el].w} knives ahead.`,
     fn(h, g) {
       const c = EL[p.el].c;
       sfx.arrow();
@@ -727,7 +727,7 @@ export const SKILL = {
   }),
   bomb: (p) => ({
     cd: 8, castTime: 0.3, aiRange: 420, aimRange: 450, ai: 'enemy',
-    desc: `抛出${EL[p.el].w}炸弹，落地后爆炸造成范围伤害。`,
+    desc: `Lob a ${EL[p.el].w} bomb that explodes on landing for area damage.`,
     fn(h, g) {
       const t = pickTarget(h, g, 450, 0.6);
       const q = t ? { x: t.x, y: t.y } : ahead(h, 320);
@@ -749,7 +749,7 @@ export const SKILL = {
   }),
   berserk: (p) => ({
     cd: 14, castTime: 0.1, aiRange: 200, ai: 'self',
-    desc: `${EL[p.el].w}狂暴 5 秒：攻速 +45%，吸血 +20%。`,
+    desc: `Enter a ${EL[p.el].w} frenzy for 5s: +45% attack speed and +20% lifesteal.`,
     fn(h, g) {
       h.buffs.berserk = 5;
       sfx.heavy();
@@ -759,7 +759,7 @@ export const SKILL = {
   }),
   roar: (p) => ({
     cd: 12, castTime: 0.3, aiRange: 180, ai: 'self',
-    desc: `发出${EL[p.el].w}怒吼，震退周围敌人并使其减速 50% 持续 2 秒。`,
+    desc: `Let out a ${EL[p.el].w} roar that knocks back nearby enemies and slows them by 50% for 2s.`,
     fn(h, g) {
       const c = EL[p.el].c;
       sfx.heavy();
@@ -770,7 +770,7 @@ export const SKILL = {
   }),
   frostLine: (p) => ({
     cd: 10, castTime: 0.35, aiRange: 480, ai: 'enemy',
-    desc: `沿直线释放${EL[p.el].w}冲击，命中的敌人被定身 1.2 秒。`,
+    desc: `Send a ${EL[p.el].w} shockwave along a line, rooting every enemy hit for 1.2s.`,
     fn(h, g) {
       const len = 520, c = EL[p.el].c;
       const x1 = h.x + h.facing.x * len, y1 = h.y + h.facing.y * len;
@@ -787,7 +787,7 @@ export const SKILL = {
   }),
   blinkNova: (p) => ({
     cd: 10, castTime: 0.2, aiRange: 320, aimRange: 340, ai: 'enemy',
-    desc: `${EL[p.el].w}跃迁到前方，落地时爆发冲击，眩晕周围敌人 0.6 秒。`,
+    desc: `Warp forward in a burst of ${EL[p.el].w}, stunning nearby enemies for 0.6s on landing.`,
     fn(h, g) {
       const q = ahead(h, 300), c = EL[p.el].c;
       teleport(h, g, q.x, q.y, c);
@@ -812,7 +812,7 @@ function visibleFoes(h, g, range) {
 export const ULT = {
   inferno: (p) => ({
     cd: 60, castTime: 0.4, aiRange: 220, ai: 'fight',
-    desc: `以自身为中心展开 5 秒${EL[p.el].w}领域（半径 260），持续伤害并减速敌人，期间自身减伤 20%。`,
+    desc: `Unfold a ${EL[p.el].w} domain around you for 5s (radius 260) that damages and slows enemies, while you take 20% less damage.`,
     fn(h, g) {
       const c = EL[p.el].c;
       h.buffs.ultArmor = 5;
@@ -824,7 +824,7 @@ export const ULT = {
   }),
   blackhole: (p) => ({
     cd: 70, castTime: 0.5, aiRange: 460, aimRange: 500, ai: 'group',
-    desc: `在前方制造${EL[p.el].w}黑洞 3 秒，强力吸引敌人，结束时爆炸造成重创并眩晕。`,
+    desc: `Open a ${EL[p.el].w} black hole ahead for 3s that pulls enemies in, then explodes for heavy damage and a stun.`,
     fn(h, g) {
       const t = pickTarget(h, g, 500, 0.7);
       const q = t ? { x: t.x, y: t.y } : ahead(h, 340);
@@ -853,7 +853,7 @@ export const ULT = {
   }),
   barrage: (p) => ({
     cd: 60, castTime: 0.3, aiRange: 520, aimRange: 560, ai: 'group',
-    desc: `向前方大片区域倾泻 4 秒${EL[p.el].w}弹幕，每枚落点都会爆炸。`,
+    desc: `Bombard a large area ahead with a ${EL[p.el].w} barrage for 4s. Every impact explodes.`,
     fn(h, g) {
       const t = pickTarget(h, g, 560, 0.7);
       const q = t ? { x: t.x, y: t.y } : ahead(h, 380);
@@ -875,7 +875,7 @@ export const ULT = {
   }),
   avatar: (p) => ({
     cd: 70, castTime: 0.4, aiRange: 260, ai: 'fight',
-    desc: `化身${EL[p.el].w}巨人 8 秒：体型变大，伤害 +40%，攻速 +30%，减伤 +25%。`,
+    desc: `Become a ${EL[p.el].w} giant for 8s: larger size, +40% damage, +30% attack speed and +25% damage reduction.`,
     fn(h, g) {
       h.buffs.avatar = 8;
       sfx.boom();
@@ -886,7 +886,7 @@ export const ULT = {
   }),
   sanctuary: (p) => ({
     cd: 75, castTime: 0.4, aiRange: 450, ai: 'save',
-    desc: `展开${EL[p.el].w}圣域：为 450 范围内的队友恢复 35% 生命，并在 2 秒内免疫伤害。`,
+    desc: `Raise a ${EL[p.el].w} sanctuary: allies within 450 heal 35% HP and are immune to damage for 2s.`,
     fn(h, g) {
       const c = EL[p.el].c;
       sfx.win();
@@ -904,7 +904,7 @@ export const ULT = {
   }),
   execute: (p) => ({
     cd: 55, castTime: 0.2, aiRange: 520, aimRange: 560, ai: 'kill',
-    desc: `瞬移到前方生命比例最低的敌方英雄身边${EL[p.el].w}斩杀：伤害 + 目标已损失生命的 40%。击杀时冷却返还一半。`,
+    desc: `Blink to the enemy hero ahead with the lowest HP% and deliver a ${EL[p.el].w} execution: damage plus 40% of their missing HP. Refunds half the cooldown on a kill.`,
     fn(h, g) {
       const c = EL[p.el].c;
       const t = visibleFoes(h, g, 600).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
@@ -922,7 +922,7 @@ export const ULT = {
   }),
   timeStop: (p) => ({
     cd: 70, castTime: 0.4, aiRange: 420, aimRange: 460, ai: 'group',
-    desc: `冻结前方区域的${EL[p.el].w}时间：范围内的敌人眩晕 2 秒。`,
+    desc: `Freeze ${EL[p.el].w} time in the area ahead, stunning enemies inside for 2s.`,
     fn(h, g) {
       const t = pickTarget(h, g, 460, 0.7);
       const q = t ? { x: t.x, y: t.y } : ahead(h, 300);
@@ -934,7 +934,7 @@ export const ULT = {
   }),
   fissure: (p) => ({
     cd: 55, castTime: 0.5, aiRange: 620, ai: 'group',
-    desc: `向前撕开 900 长的${EL[p.el].w}裂谷：沿线敌人受到重创并眩晕，裂谷两侧升起岩墙 3 秒。`,
+    desc: `Tear open a 900-long ${EL[p.el].w} rift: enemies along it take heavy damage and are stunned, and rock walls rise along both sides for 3s.`,
     fn(h, g) {
       const c = EL[p.el].c;
       const fx = h.facing.x, fy = h.facing.y, px = -fy, py = fx;
@@ -959,7 +959,7 @@ export const ULT = {
   }),
   beast: (p) => ({
     cd: 70, castTime: 0.5, aiRange: 500, ai: 'fight',
-    desc: `召唤${EL[p.el].w}巨兽并肩作战 14 秒，它会自动攻击附近的敌人。`,
+    desc: `Summon a ${EL[p.el].w} beast to fight beside you for 14s. It attacks nearby enemies on its own.`,
     fn(h, g) {
       const pet = new Pet(g, h, { hp: D(p, 900), dmg: D(p, 55), life: 14, color: EL[p.el].c, color2: EL[p.el].c2 });
       g.pets.push(pet);
@@ -970,7 +970,7 @@ export const ULT = {
   }),
   ricochet: (p) => ({
     cd: 50, castTime: 0.3, aiRange: 520, aimRange: 560, ai: 'fight',
-    desc: `发射${EL[p.el].w}弹射球，在敌人之间最多弹射 8 次，优先弹向英雄。`,
+    desc: `Fire a ${EL[p.el].w} orb that ricochets between up to 8 enemies, preferring heroes.`,
     fn(h, g) {
       const c = EL[p.el].c;
       const first = pickTarget(h, g, 560, 0.8);
@@ -1003,7 +1003,7 @@ export const ULT = {
   }),
   dragonDash: (p) => ({
     cd: 55, castTime: 0.1, aiRange: 450, ai: 'fight',
-    desc: `化身${EL[p.el].w}之龙连续突进 3 次（可用方向键转向），每次都伤害沿途敌人并留下灼痕。`,
+    desc: `Turn into a ${EL[p.el].w} dragon and dash 3 times (steer with the arrow keys), damaging enemies and scorching the ground along each path.`,
     fn(h, g) {
       const c = EL[p.el].c;
       for (let k = 0; k < 3; k++) {
@@ -1028,7 +1028,7 @@ export const ULT = {
   }),
   starfall: (p) => ({
     cd: 75, castTime: 0.6, aiRange: 900, ai: 'fight',
-    desc: `标记 1000 范围内所有可见的敌方英雄，1 秒后对每人降下${EL[p.el].w}天罚。`,
+    desc: `Mark every visible enemy hero within 1000 range, then strike each one with ${EL[p.el].w} judgment after 1s.`,
     fn(h, g) {
       const c = EL[p.el].c;
       const foes = visibleFoes(h, g, 1000);

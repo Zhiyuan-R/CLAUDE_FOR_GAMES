@@ -1,152 +1,158 @@
-# 秘境对决 · Claude for Games
+# Arcane Duel · Claude for Games
 
-一款 2.5D 斜俯视角的**地牢动作 MOBA**：战斗手感参考《传说法师》（Wizard of Legend），地图和规则参考《英雄联盟》。全程键盘操作，用 WASD 走位，配合普攻连击、蓄力攻击、穿梭和技能战斗，不需要鼠标。
+A 2.5D top-down **dungeon action MOBA**. The combat feel is inspired by *Wizard of Legend* and the map and rules by *League of Legends*. Everything is played on the keyboard: move with WASD and fight with combo attacks, charged attacks, dashes, skills and ultimates. No mouse required.
 
-- **5v5**：你和 4 名电脑队友，对战 5 名电脑，场上共 9 个人机。
-- **30 位英雄**：每位英雄都有专属被动、两个技能和一个大招，普攻、蓄力攻击、穿梭方式和技能组合都不相同。选人界面和 HUD 都有插画头像。
-- **地牢地图**：72×40 格的宽阔地牢，包括 5～6 格宽的三条兵线、四个大型野区房间、两个 Boss 巢穴和中央广场。
-- **地形**：
-  - 草丛：藏在里面，敌人靠近或同在一片草丛才看得见，出手会暴露位置。
-  - 尖刺：周期性升起，会先亮红色预警。
-  - 浅水：减速 30%。
-  - 炸药桶：打爆后炸伤周围所有单位，不分敌我。
-- **装备**：打野怪、开宝箱、击杀英雄都会掉落装备。走过去即可拾取，背包有 6 格。
-- **坐骑**：有 4 种坐骑可选，按 R 召唤后骑乘赶路。
+## Features
 
-## 运行
+**Matches**
+- **5v5**: you and 4 bot allies against 5 bots, with 9 bots in every match.
 
-纯浏览器 Canvas 实现，**零依赖、无需构建**。由于使用了 ES Module，需要通过本地 HTTP 服务打开：
+**Heroes**
+- **30 heroes**, each with its own illustrated portrait.
+- Every hero has:
+  - a unique passive
+  - two skills
+  - an ultimate
+  - its own basic attack, charged attack and dash
+
+**Map and terrain**
+- **A wide dungeon**: a 72×40-tile map with three lanes 5–6 tiles wide, four large jungle rooms, two boss lairs and a central plaza.
+- **Terrain**:
+  - **Bushes** hide you from enemies unless they get close or step into the same bush. Attacking reveals you.
+  - **Spikes** rise periodically and glow red before they come up.
+  - **Shallow water** slows movement by 30%.
+  - **Explosive barrels** damage everyone nearby, friend or foe.
+
+**Loot and mounts**
+- **Loot** drops from jungle monsters, chests, bosses and hero kills. Walk over it to pick it up. Your bag holds 6 items.
+- **Mounts**: 4 to choose from. Press R to summon one and ride.
+
+## Running
+
+The game is written for the HTML5 Canvas with **zero dependencies and no build step**. It uses ES modules, so serve it over HTTP:
 
 ```bash
-python3 -m http.server 8000   # 或 npm start
-# 浏览器打开 http://localhost:8000
+python3 -m http.server 8000   # or: npm start
+# then open http://localhost:8000
 ```
 
-## 操作
+## Controls
 
-| 按键 | 作用 |
+| Key | Action |
 |---|---|
-| `W` `A` `S` `D` / 方向键 | 八方向移动 |
-| `J` | 普通攻击，连按触发多段连击（拳系英雄为四段） |
-| 按住 `K` | 蓄力，松开释放。蓄满时伤害和范围更大，并附带额外效果 |
-| `空格` / `L` | 穿梭，分为冲刺、瞬移、翻滚三类，带无敌帧 |
-| `U` / `I`（或 `Q` / `E`） | 技能 1 / 技能 2 |
-| `O` | 大招（冷却 50～75 秒） |
-| `R` | 召唤或解除坐骑（召唤需引导 1 秒） |
-| `B` | 回城（引导 4 秒，移动或受到伤害会打断） |
-| `Esc` / `M` | 暂停 / 静音 |
+| `W` `A` `S` `D` / arrow keys | 8-directional movement |
+| `J` | Basic attack (tap repeatedly for a combo) |
+| Hold `K` | Charge, release to unleash (full charge adds bonus effects) |
+| `Space` / `L` | Dash (dash, blink or roll, with invulnerability frames) |
+| `U` / `I` (or `Q` / `E`) | Skill 1 / Skill 2 |
+| `O` | Ultimate (50–75s cooldown) |
+| `R` | Summon or dismiss your mount (1s channel) |
+| `B` | Recall to base (4s channel, interrupted by moving or taking damage) |
+| `Esc` / `M` | Pause / mute |
 
-攻击会**自动吸附**面朝方向扇形范围内的敌人，并且会被墙挡住。
+Attacks **auto-aim** at enemies inside a cone in front of you, and walls block line of sight.
 
-## 对局规则
+## Rules
 
-**防御塔**
-- 每条兵线有一座外塔和一座内塔。外塔存活时，同一路的内塔无敌。
-- 只要有一座内塔被摧毁，基地水晶就可以被攻击了。摧毁基地水晶即获胜。
+**Towers**
+- Each lane has an outer and an inner tower. An inner tower is invulnerable while its outer tower stands.
+- Destroying any inner tower exposes the Nexus Crystal. Destroy the Nexus Crystal to win.
 
-**兵线**
-- 每 30 秒三路同时出兵，每路 2 个近战兵和 1 个法师兵。小兵会随波次逐渐变强。
+**Waves**
+- All three lanes spawn 2 melee minions and 1 caster minion every 30s. Minions grow stronger with each wave.
 
-**野区**
-- 野区有骷髅战士、石像魔、洞穴毒蛛、暗影狼人四种营地。野怪会追击攻击者，离开营地太远会回家回血。
-- 每个房间里有会刷新的宝箱。
+**Jungle**
+- Four camp types: skeleton warriors, gargoyles, cave spiders and shadow werewolves. Monsters chase whoever attacks them, then return home and heal if pulled too far.
+- Chests respawn inside the jungle rooms.
 
-**Boss**
-- 深渊巨龙：击杀后全队伤害 +15%。
-- 远古巨像：击杀后全队减伤 +15%，并持续回血。
-- 两个 Boss 都会释放带预警圈的范围大招，击杀后掉落史诗或传说装备。
+**Bosses**
+- **Abyssal Dragon**: +15% damage for the whole team.
+- **Ancient Colossus**: +15% damage reduction and regeneration for the whole team.
+- Both bosses telegraph their area attacks, and both drop epic or legendary gear.
 
-**装备**
-- 共四档品质：普通、稀有、史诗、传说。
-- 属性包括伤害、生命、减伤、冷却缩减、攻速、移速、吸血和回血。
-- 背包满后，拾取时只会替换掉品质更低的装备。
+**Gear**
+- Four rarities: Common, Rare, Epic and Legendary.
+- Stats include damage, HP, armor, cooldown reduction, attack speed, move speed, lifesteal and regen.
+- When your bag is full, picking up an item only replaces lower-rarity gear.
 
-**坐骑**
+**Mounts**
 
-| 坐骑 | 效果 |
+| Mount | Effect |
 |---|---|
-| 影狼 | 移速 +75% |
-| 战猪 | 骑乘时撞飞并眩晕敌人 |
-| 迅猛龙 | 穿梭时不会下马 |
-| 灵鹿 | 骑乘时持续回血 |
+| Shadow Wolf | +75% move speed |
+| War Boar | Rams enemies, knocking them up and stunning them |
+| Raptor | Dashing doesn't dismount you |
+| Spirit Stag | Regenerates HP while riding |
 
-攻击、释放技能或受到伤害时会自动下马。
+You dismount when you attack, cast or take damage.
 
-**电脑**
-- 9 名电脑按位置行动：上路、中路、下路、辅助、打野。
-- 它们会用 A* 寻路穿过地牢，会团战支援、打野与开宝箱、捡装备、骑坐骑赶路、残血时撤退或回城，也会用穿梭躲技能。
-- 难度分简单、普通、困难三档。
+**Bots**
+- The 9 bots take the roles Top, Mid, Bot, Support and Jungle.
+- They path through the dungeon with A*, rotate to team fights, jungle, open chests, pick up loot and ride mounts.
+- When low, they retreat or recall. They also dodge skill shots, respect bush vision and use their ultimates when it counts.
+- Three difficulty levels.
 
-## 30 位英雄
+## Heroes
 
-每位英雄都有：
+Heroes are assembled from building blocks in `src/skills.js`:
 
-- **被动（15 种）**：余烬、嗜血、处决、冲势、收割、坚韧、法术回响、战旗、荆棘、致命、霜咬、回春、双影、狂怒、潜伏者。
-- **大招（12 类 × 元素）**：炼狱领域、黑洞、弹幕、巨人化身、圣域、斩杀、时间禁锢、裂谷、召唤巨兽、弹射球、三段龙突、天罚。
+- **Basic attacks**: 3 types.
+- **Charged attacks**: 7 types.
+- **Dashes**: 3 types.
+- **Skills**: 30 mechanics.
+- **Ultimates**: 12 types.
+- **Elements**: 12.
+- **Passives**: 15, defined in `src/passives.js`.
 
-
-英雄由技能库里的“积木”组合而成（`src/skills.js`）：
-
-- **普攻 3 类**：挥砍、突刺、射击，并按武器区分参数。
-- **蓄力 7 类**：回旋、光束、扇射、跳斩、法球、震波、突刺。
-- **穿梭 3 类**：冲刺、瞬移、翻滚。
-- **技能 30 种**：突进、光环、连锁闪电、风暴、陷阱、新星后跳、陨石、回旋刃、钩锁、重击、旋风斩、背刺、箭雨、召唤墙体、护盾、群体治疗、图腾炮台、毒云、冲锋、漩涡、环绕飞刃、投矛、隐身、生命汲取、飞刀、炸弹、狂暴、怒吼、直线定身、跃迁爆发。
-
-再搭配 12 种元素（火焰、冰霜、雷电、剧毒、圣光、暗影、自然、鲜血、大地、疾风、潮汐、奥术），决定颜色与附加效果。
-
-| 定位 | 英雄 |
+| Role | Heroes |
 |---|---|
-| 坦克 | 熔岩巨像、圣骑士、冰霜巨魔、亡灵骑士、熊猫酒仙 |
-| 战士 | 烈焰剑士、狂战士、血族伯爵、屠夫、雷鸣战神、沙漠枪骑、武僧 |
-| 刺客 | 影刃、疾风刺客、灵魂猎手 |
-| 法师 | 雷霆法师、瘟疫术士、深海女巫、星界术士、炎爆魔导、机关工匠 |
-| 射手 | 寒霜游侠、风行者、雷火弩手、月影弓手、蛇发女妖 |
-| 辅助 | 圣光牧师、森林德鲁伊、雪原萨满、时空旅者 |
+| Tank | Magma Titan, Paladin, Frost Troll, Death Knight, Brewmaster |
+| Fighter | Ember Knight, Berserker, Blood Count, Butcher, Thunder Lord, Desert Lancer, Monk |
+| Assassin | Shadow Blade, Gale Assassin, Soul Hunter |
+| Mage | Storm Mage, Plague Warlock, Tide Witch, Astral Sage, Pyromancer, Tinker |
+| Marksman | Frost Ranger, Wind Walker, Arbalest, Moon Archer, Gorgon |
+| Support | Holy Cleric, Grove Druid, Snow Shaman, Chronomancer |
 
-## 代码结构
+To add a hero:
+
+1. Add one `H({...})` line to `HERO_LIST` in `src/heroes.js`, picking a role, element, weapon, headgear, colors, charged type, dash type and two skills.
+2. Add its passive and ultimate to the `EXTRA` table in the same file.
+
+## Code layout
 
 ```
 src/
-  main.js          入口：菜单（英雄 / 坐骑 / 难度）、主循环、暂停与结算
-  game.js          对局：5v5 组队与分路、兵线、野怪与宝箱刷新、掉落、Boss 增益、胜负
-  map.js           地牢网格（只写一半，按中心对称生成）、兵线路径、塔与营地位置、装饰
-  nav.js           墙体碰撞、视线检测、A* 寻路与路径平滑
-  skills.js        技能库：普攻 / 蓄力 / 30 种技能 / 12 类大招，按元素参数化
-  passives.js      15 种英雄被动
-  elements.js      12 种元素
-  heroes.js        30 位英雄的组合定义
-  items.js         装备与品质
-  mounts.js        坐骑
-  ai.js            电脑英雄（分路 / 打野 / 团战 / 拾取 / 坐骑 / 回城 / 躲技能）
-  combat.js        伤害结算（加成、减伤、护盾、吸血、控制）与命中判定
-  entities/        Hero、Minion、Tower、Monster / Chest / Barrel、Pet、Projectile、Zone
-  render/          地面预渲染、墙体精灵、角色 / 坐骑 / 野怪绘制、头像、光照、HUD
-tools/sim.js       无界面 10 AI 对战模拟，用于检查报错和对局节奏
+  main.js          entry: menu (hero / mount / difficulty), main loop, pause and results
+  game.js          match: teams and roles, waves, camps, chests, barrels, terrain, bush vision, loot, boss buffs, win condition
+  map.js           dungeon grid (half authored, mirrored), terrain, lane paths, tower / camp spots, decorations
+  nav.js           wall collision, line of sight, A* pathfinding with smoothing
+  skills.js        basic / charged / 30 skills / 12 ultimates, parameterized by element
+  passives.js      15 hero passives
+  elements.js      12 elements
+  heroes.js        the 30 hero definitions
+  items.js         gear and rarities
+  mounts.js        mounts
+  ai.js            bot heroes
+  combat.js        damage resolution (bonuses, armor, shields, lifesteal, crowd control) and hit tests
+  entities/        Hero, Minion, Tower, Monster / Chest / Barrel, Pet, Projectile, Zone
+  render/          ground pre-render, wall sprites, character / mount / monster art, portraits, lighting, HUD
+tools/sim.js       headless 10-bot match simulation for catching errors and checking pacing
 ```
 
-**2.5D 的实现方式**：
-- 逻辑在地面平面 `(x, y)` 上计算，另有高度 `z`。绘制时投影为 `(x, y·0.62 − z)`。
-- 地牢墙按瓦片绘制，分为顶面和朝下的砖墙正面，并与角色一起按 `y` 深度排序。
-- 角色走到墙后时，挡住角色的墙会变成半透明。
+**How the 2.5D works**:
+- Game logic runs on the ground plane `(x, y)` plus a height `z`. Everything is projected to `(x, y·0.62 − z)` for drawing.
+- Dungeon walls are drawn per tile (top face plus brick front) and depth-sorted together with characters by `y`.
+- Walls between you and the camera turn translucent.
 
-### 新增一位英雄
+## Debug URL parameters
 
-在 `src/heroes.js` 的 `HERO_LIST` 里加一行 `H({...})`，选好以下内容即可：
+- `?play`: skip the menu
+- `&hero=pyro`: choose your hero
+- `&difficulty=hard`: set bot difficulty
+- `&mount=raptor`: choose your mount
+- `&auto`: let a bot play your hero
+- `&speed=3`: run faster
 
-- 定位、元素、武器、头饰、配色
-- 蓄力类型
-- 穿梭类型
-- 两个技能类型
+Example: `/index.html?play&auto&speed=3&hero=moon`
 
-如果要做全新的技能机制，在 `src/skills.js` 的 `SKILL` 里新增一项。
-
-## 调试参数
-
-- `?play`：跳过菜单直接开局
-- `&hero=pyro`：指定玩家英雄
-- `&difficulty=hard`：指定电脑难度
-- `&mount=raptor`：指定坐骑
-- `&auto`：玩家也由 AI 控制
-- `&speed=3`：加速运行
-
-`npm run sim` 会在无界面环境里跑完整的 5v5 对局，输出胜负、比分、拆塔数、装备数与 KDA。
+`npm run sim` runs complete headless 5v5 matches and prints winners, scores, towers taken, item counts and KDA.

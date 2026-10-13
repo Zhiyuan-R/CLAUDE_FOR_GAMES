@@ -15,7 +15,7 @@ import { rollItem, RARITY } from './items.js';
 import { MOUNTS, MOUNT_LIST } from './mounts.js';
 import { sfx } from './audio.js';
 
-const ROLE_NAMES = { top: '上路', mid: '中路', bot: '下路', support: '辅助', jungle: '打野' };
+const ROLE_NAMES = { top: 'Top', mid: 'Mid', bot: 'Bot', support: 'Support', jungle: 'Jungle' };
 // 各位置偏好的英雄定位
 const ROLE_PREF = {
   jungle: ['assassin', 'fighter'],
@@ -55,7 +55,7 @@ export class Game {
     this.barrels = [];
     this.hidden = [new Set(), new Set()];
     // 环境伤害来源（尖刺、炸药桶），对所有阵营生效
-    this.env = { team: 3, kind: 'env', name: '地形', alive: true, x: 0, y: 0 };
+    this.env = { team: 3, kind: 'env', name: 'Terrain', alive: true, x: 0, y: 0 };
     this.projectiles = [];
     this.zones = [];
     this.dynWalls = [];
@@ -117,7 +117,7 @@ export class Game {
 
     this.rebuildUnits();
     if (!demo) {
-      this.banner('欢迎来到秘境地牢', '#e9e2ff', `你的位置：${ROLE_NAMES[this.player.role]} · 摧毁敌方基地水晶获胜`);
+      this.banner('Welcome to the Arcane Dungeon', '#e9e2ff', `Your role: ${ROLE_NAMES[this.player.role]} · Destroy the enemy Nexus Crystal to win`);
     }
   }
 
@@ -206,7 +206,7 @@ export class Game {
         });
       }
     }
-    if (this.waveN === 1 && !this.opts.demo) this.banner('三路小兵已出发', '#cfc6ff');
+    if (this.waveN === 1 && !this.opts.demo) this.banner('Minions are marching down all three lanes', '#cfc6ff');
   }
 
   updateCamps(dt) {
@@ -223,7 +223,7 @@ export class Game {
         this.monsters.push(u);
       }
       c.respawnT = m.boss ? 150 : 70;
-      if (m.boss && this.time > 5 && !this.opts.demo) this.log(`${m.name} 已在巢穴苏醒`, '#ffb36b');
+      if (m.boss && this.time > 5 && !this.opts.demo) this.log(`${m.name} has awakened in its lair`, '#ffb36b');
     }
     for (const s of this.barrelSpots) {
       if (s.unit && s.unit.alive) continue;
@@ -365,12 +365,12 @@ export class Game {
           this.fx.burst(l.x, l.y, 20, col, 14, { speed: 160, life: 0.5 });
           if (h === this.player) {
             sfx.ready();
-            this.fx.text(h.x, h.y, 110, `获得 ${l.item.name}`, col, 16);
+            this.fx.text(h.x, h.y, 110, `Picked up ${l.item.name}`, col, 16);
           }
           break;
         } else if (h === this.player && (l._msgT || 0) < this.time) {
           l._msgT = this.time + 2;
-          this.fx.text(h.x, h.y, 110, '背包已满（只会替换更低品质的装备）', '#c9c3e0', 13);
+          this.fx.text(h.x, h.y, 110, 'Bag full (only replaces lower-rarity gear)', '#c9c3e0', 13);
         }
       }
     }
@@ -443,9 +443,9 @@ export class Game {
         const team = killer && (killer.team === BLUE || killer.team === RED) ? killer.team : null;
         if (team !== null) {
           this.teamBuffs[team][m.buff] = 150;
-          const buffText = m.buff === 'dragon' ? '全队伤害 +15%' : '全队减伤 +15%、持续回血';
+          const buffText = m.buff === 'dragon' ? 'Team damage +15%' : 'Team damage reduction +15% and regen';
           const ours = team === this.player.team;
-          this.banner(`${TEAM_NAMES[team]}击败了${m.name}`, ours ? '#ffd24a' : '#ff6b6b', `${buffText}，持续 150 秒`);
+          this.banner(`${TEAM_NAMES[team]} team slew the ${m.name}`, ours ? '#ffd24a' : '#ff6b6b', `${buffText} for 150s`);
         }
       } else if (Math.random() < (m.tier >= 1 ? 0.8 : 0.35)) {
         this.dropItem(u.x, u.y, m.tier);
@@ -469,13 +469,13 @@ export class Game {
       if (hero && hero.def.passive === 'reset') { hero.skillCd[0] = 0; hero.skillCd[1] = 0; this.fx.ring(hero.x, hero.y, 10, 70, hero.def.color2, { dur: 0.4 }); }
       u.recentAttackers.clear();
       this.dropItem(u.x, u.y, 1);
-      const kname = hero ? hero.name : killer?.kind === 'tower' || killer?.kind === 'core' ? '防御塔' : killer?.kind === 'monster' ? killer.name : killer?.kind === 'env' ? '地形' : '小兵';
-      this.log(`${kname} 击杀了 ${u.name}`, team === this.player.team ? '#8fd0ff' : '#ff8a8a');
+      const kname = hero ? hero.name : killer?.kind === 'tower' || killer?.kind === 'core' ? 'A tower' : killer?.kind === 'monster' ? killer.name : killer?.kind === 'env' ? 'Terrain' : 'A minion';
+      this.log(`${kname} slew ${u.name}`, team === this.player.team ? '#8fd0ff' : '#ff8a8a');
       if (this.opts.demo) return;
       const fb = !this.firstBlood;
       this.firstBlood = true;
-      if (u === this.player) this.banner(fb ? '你被拿下了一血' : '你被击杀了', '#ff6b6b', `${Math.ceil(u.respawnT)} 秒后复活`);
-      else if (hero === this.player) this.banner(fb ? '第一滴血！' : '击杀！', '#ffd24a', `${u.name} 已被击败`);
+      if (u === this.player) this.banner(fb ? 'You gave up First Blood' : 'You have been slain', '#ff6b6b', `Respawning in ${Math.ceil(u.respawnT)}s`);
+      else if (hero === this.player) this.banner(fb ? 'First Blood!' : 'Enemy Slain!', '#ffd24a', `${u.name} has been defeated`);
       return;
     }
     // 防御塔 / 基地
@@ -489,14 +489,14 @@ export class Game {
       this.winner = 1 - u.team;
       if (!this.opts.demo) {
         const win = this.winner === this.player.team;
-        this.banner(win ? '胜利' : '失败', win ? '#ffd24a' : '#ff6b6b', `${TEAM_NAMES[u.team]}基地水晶被摧毁`);
+        this.banner(win ? 'Victory' : 'Defeat', win ? '#ffd24a' : '#ff6b6b', `The ${TEAM_NAMES[u.team]} Nexus Crystal has fallen`);
         win ? sfx.win() : sfx.lose();
       }
     } else {
       const ours = u.team === this.player.team;
       const laneName = ROLE_NAMES[u.lane] || '';
-      this.log(`${TEAM_NAMES[u.team]}${laneName}${u.tier === 'inner' ? '内塔' : '外塔'}被摧毁`, ours ? '#ff8a8a' : '#8fd0ff');
-      if (!this.opts.demo && (u.tier === 'inner')) this.banner(ours ? '我方内塔失守' : '攻破敌方内塔！', ours ? '#ff6b6b' : '#7dd3ff', ours ? '基地水晶已暴露' : '敌方基地水晶已可被攻击');
+      this.log(`${TEAM_NAMES[u.team]} ${laneName} ${u.tier === 'inner' ? 'inner' : 'outer'} tower destroyed`, ours ? '#ff8a8a' : '#8fd0ff');
+      if (!this.opts.demo && (u.tier === 'inner')) this.banner(ours ? 'Our inner tower has fallen' : 'Enemy inner tower destroyed!', ours ? '#ff6b6b' : '#7dd3ff', ours ? 'Our Nexus Crystal is exposed' : 'The enemy Nexus Crystal can now be attacked');
     }
     void NEUTRAL;
   }

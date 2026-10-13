@@ -1,5 +1,5 @@
-// 无界面对局模拟：10 名 AI 打完整局 5v5，用于检查逻辑错误与节奏
-// 用法：node tools/sim.js [局数=3] [难度=normal] [最长分钟=20]
+// Headless match simulation: 10 bots play full 5v5 matches to catch errors and check pacing
+// Usage: node tools/sim.js [matches=3] [difficulty=normal] [maxMinutes=20]
 import { Game } from '../src/game.js';
 import { HERO_LIST } from '../src/heroes.js';
 
@@ -17,14 +17,14 @@ for (let r = 0; r < rounds; r++) {
     for (; i < maxMin * 60 * 30 && !(g.winner !== null && g.endT > 1); i++) g.update(DT);
   } catch (e) {
     failed = true;
-    console.error(`第 ${r + 1} 局，第 ${(i * DT).toFixed(1)}s 报错`, e);
+    console.error(`Match ${r + 1} crashed at ${(i * DT).toFixed(1)}s`, e);
     continue;
   }
   const ms = (performance.now() - t0) / i;
   const towers = [0, 1].map((tm) => g.towers.filter((t) => t.team === tm && !t.alive).length);
   const items = g.heroes.map((h) => h.items.length).join(',');
   const kda = g.heroes.map((h) => `${h.name}(${h.role}) ${h.stats.kills}/${h.stats.deaths}/${h.stats.assists}`).join(' | ');
-  console.log(`第 ${r + 1} 局 | 胜者: ${g.winner === null ? '未分胜负' : g.winner === 0 ? '蓝方' : '红方'} | ${(g.time / 60).toFixed(1)}min | 比分 ${g.score.join(':')} | 被拆塔 蓝${towers[0]} 红${towers[1]} | 装备数 ${items} | ${ms.toFixed(2)}ms/帧`);
+  console.log(`Match ${r + 1} | winner: ${g.winner === null ? 'none' : g.winner === 0 ? 'Blue' : 'Red'} | ${(g.time / 60).toFixed(1)}min | score ${g.score.join(':')} | towers lost Blue ${towers[0]} Red ${towers[1]} | items ${items} | ${ms.toFixed(2)}ms/frame`);
   console.log('   ', kda);
 }
 process.exit(failed ? 1 : 0);

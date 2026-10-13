@@ -96,6 +96,8 @@ export class FX {
   }
 
   text(x, y, z, str, color, size = 18) {
+    // 同一位置的相同状态提示不重复叠加
+    if (isNaN(Number(str)) && this.texts.some((q) => q.str === str && q.max - q.life < 0.5 && Math.abs(q.x - x) < 40 && Math.abs(q.y - y) < 40)) return;
     this.texts.push({ x: x + rand(-10, 10), y, z, str, color, size, life: 0.8, max: 0.8, vz: 120 });
   }
 

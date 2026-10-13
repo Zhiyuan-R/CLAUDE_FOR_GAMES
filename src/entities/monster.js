@@ -6,12 +6,12 @@ import { NEUTRAL } from '../config.js';
 import { sfx } from '../audio.js';
 
 export const MONSTERS = {
-  skeleton: { name: '骷髅战士', hp: 520, dmg: 32, radius: 16, speed: 130, atk: 1.1, range: 30, count: 3, tier: 0, height: 50 },
-  golem: { name: '石像魔', hp: 1600, dmg: 62, radius: 30, speed: 95, atk: 1.6, range: 40, count: 1, tier: 1, height: 80 },
-  spider: { name: '洞穴毒蛛', hp: 700, dmg: 34, radius: 20, speed: 150, atk: 1.0, range: 30, count: 2, tier: 0, height: 36, burn: true },
-  wolf: { name: '暗影狼人', hp: 1150, dmg: 50, radius: 24, speed: 145, atk: 1.2, range: 34, count: 1, tier: 1, height: 64 },
-  dragon: { name: '深渊巨龙', hp: 6000, dmg: 110, radius: 54, speed: 80, atk: 1.8, range: 70, count: 1, tier: 3, height: 130, boss: true, buff: 'dragon' },
-  colossus: { name: '远古巨像', hp: 6800, dmg: 100, radius: 56, speed: 70, atk: 2.0, range: 70, count: 1, tier: 3, height: 140, boss: true, buff: 'colossus' },
+  skeleton: { name: 'Skeleton Warrior', hp: 520, dmg: 32, radius: 16, speed: 130, atk: 1.1, range: 30, count: 3, tier: 0, height: 50 },
+  golem: { name: 'Gargoyle', hp: 1600, dmg: 62, radius: 30, speed: 95, atk: 1.6, range: 40, count: 1, tier: 1, height: 80 },
+  spider: { name: 'Cave Spider', hp: 700, dmg: 34, radius: 20, speed: 150, atk: 1.0, range: 30, count: 2, tier: 0, height: 36, burn: true },
+  wolf: { name: 'Shadow Werewolf', hp: 1150, dmg: 50, radius: 24, speed: 145, atk: 1.2, range: 34, count: 1, tier: 1, height: 64 },
+  dragon: { name: 'Abyssal Dragon', hp: 6000, dmg: 110, radius: 54, speed: 80, atk: 1.8, range: 70, count: 1, tier: 3, height: 130, boss: true, buff: 'dragon' },
+  colossus: { name: 'Ancient Colossus', hp: 6800, dmg: 100, radius: 56, speed: 70, atk: 2.0, range: 70, count: 1, tier: 3, height: 140, boss: true, buff: 'colossus' },
 };
 
 export class Monster extends Unit {

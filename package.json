@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "秘境对决：2.5D 动作 MOBA 1v1 Demo（浏览器 Canvas，零依赖）",
+  "description": "Arcane Duel: a 2.5D dungeon action MOBA (HTML5 Canvas, zero dependencies)",
   "scripts": {
     "start": "python3 -m http.server 8000",
     "sim": "node tools/sim.js"

@@ -7,9 +7,9 @@ import { MAP } from './map.js';
 import { findPath, los } from './nav.js';
 
 export const DIFFICULTY = {
-  easy: { label: '简单', think: 0.32, dodge: 0.12, aggression: 0.55, skill: 0.5, attackRate: 0.55, lead: 0.3 },
-  normal: { label: '普通', think: 0.2, dodge: 0.4, aggression: 0.8, skill: 1, attackRate: 0.85, lead: 0.7 },
-  hard: { label: '困难', think: 0.12, dodge: 0.7, aggression: 1, skill: 1.6, attackRate: 1, lead: 0.95 },
+  easy: { label: 'Easy', think: 0.32, dodge: 0.12, aggression: 0.55, skill: 0.5, attackRate: 0.55, lead: 0.3 },
+  normal: { label: 'Normal', think: 0.2, dodge: 0.4, aggression: 0.8, skill: 1, attackRate: 0.85, lead: 0.7 },
+  hard: { label: 'Hard', think: 0.12, dodge: 0.7, aggression: 1, skill: 1.6, attackRate: 1, lead: 0.95 },
 };
 
 // 沿兵线路径的推进进度（路径长度坐标）

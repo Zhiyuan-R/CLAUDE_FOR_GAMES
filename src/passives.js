@@ -4,21 +4,21 @@ import { EL } from './elements.js';
 import { bushAt } from './map.js';
 
 export const PASSIVES = {
-  pyre: { name: '余烬', desc: '每第 3 次普攻命中时引发元素爆发，对周围敌人造成伤害并附带元素效果。' },
-  vampire: { name: '嗜血', desc: '获得 12% 吸血；生命低于 40% 时吸血翻倍。' },
-  executioner: { name: '处决', desc: '对生命低于 35% 的敌人伤害提升 35%。' },
-  momentum: { name: '冲势', desc: '持续移动 1.5 秒后，下一次普攻伤害 +60% 并击退。' },
-  reset: { name: '收割', desc: '击杀或助攻英雄时刷新技能冷却；击杀小兵时技能冷却减少 1 秒。' },
-  lastStand: { name: '坚韧', desc: '生命低于 30% 时获得最大生命 30% 的护盾（45 秒冷却）。' },
-  echo: { name: '法术回响', desc: '释放技能后 3 秒内，下一次普攻伤害 +80% 并附带元素效果。' },
-  banner: { name: '战旗', desc: '附近 450 范围内的队友伤害提升 10%。' },
-  thorns: { name: '荆棘', desc: '受到非持续伤害时，把 25% 反弹给攻击者。' },
-  crit: { name: '致命', desc: '攻击有 22% 几率暴击，造成 1.8 倍伤害。' },
-  frostbite: { name: '霜咬', desc: '普攻使敌人减速 25%；对减速中的敌人伤害提升 20%。' },
-  secondWind: { name: '回春', desc: '4 秒未受伤后，每秒恢复 4% 最大生命。' },
-  twinDash: { name: '双影', desc: '穿梭可以连续使用两次。' },
-  fury: { name: '狂怒', desc: '生命越低伤害越高，最多提升 50%。' },
-  hunter: { name: '潜伏者', desc: '在草丛中移速 +30%；离开草丛后 3 秒内的第一次攻击伤害 +80%。' },
+  pyre: { name: 'Embers', desc: 'Every 3rd basic hit triggers an elemental burst that damages nearby enemies and applies your element.' },
+  vampire: { name: 'Bloodthirst', desc: 'Gain 12% lifesteal, doubled below 40% HP.' },
+  executioner: { name: 'Executioner', desc: 'Deal 35% more damage to enemies below 35% HP.' },
+  momentum: { name: 'Momentum', desc: 'After moving for 1.5s, your next basic attack deals 60% more damage and knocks back.' },
+  reset: { name: 'Reaper', desc: 'Hero kills and assists reset your skill cooldowns. Minion kills shave 1s off them.' },
+  lastStand: { name: 'Last Stand', desc: 'Dropping below 30% HP grants a shield worth 30% of max HP (45s cooldown).' },
+  echo: { name: 'Spell Echo', desc: 'Within 3s of casting a skill, your next basic attack deals 80% more damage and applies your element.' },
+  banner: { name: 'War Banner', desc: 'Allies within 450 range deal 10% more damage.' },
+  thorns: { name: 'Thorns', desc: 'Reflect 25% of direct damage taken back to the attacker.' },
+  crit: { name: 'Lethality', desc: 'Attacks have a 22% chance to crit for 1.8x damage.' },
+  frostbite: { name: 'Frostbite', desc: 'Basic attacks slow by 25%. Deal 20% more damage to slowed enemies.' },
+  secondWind: { name: 'Second Wind', desc: 'After 4s without taking damage, regenerate 4% max HP per second.' },
+  twinDash: { name: 'Twin Shadow', desc: 'Your dash has 2 charges.' },
+  fury: { name: 'Fury', desc: 'Deal more damage the lower your HP, up to +50%.' },
+  hunter: { name: 'Stalker', desc: '+30% move speed in bushes. Your first attack within 3s of leaving a bush deals 80% more damage.' },
 };
 
 // 伤害修正：攻击方被动

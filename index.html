@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>秘境对决 · Claude for Games</title>
+  <title>Arcane Duel · Claude for Games</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -12,46 +12,46 @@
   <div id="menu" class="screen">
     <div class="menu-inner">
       <header>
-        <div class="eyebrow">Claude for Games · 2.5D 地牢动作 MOBA</div>
-        <h1>秘境对决</h1>
-        <p class="sub">5v5 · 你和 4 名电脑队友对战 5 名电脑 · 打野捡装备、骑坐骑赶路，摧毁敌方基地水晶获胜</p>
+        <div class="eyebrow">Claude for Games · 2.5D Dungeon Action MOBA</div>
+        <h1>Arcane Duel</h1>
+        <p class="sub">5v5 · You and 4 bot allies against 5 bots · Clear the jungle, loot gear, ride mounts, and destroy the enemy Nexus Crystal</p>
       </header>
       <div class="pick">
         <div class="pick-left">
-          <h2>选择英雄 <small>30 位英雄 · 方向键切换</small></h2>
+          <h2>Choose your hero <small>30 heroes · arrow keys to browse</small></h2>
           <div id="heroes" class="hero-grid"></div>
         </div>
         <aside id="detail" class="detail"></aside>
       </div>
       <div class="bottom-row">
         <div class="col">
-          <h2>坐骑</h2>
+          <h2>Mount</h2>
           <div id="mounts" class="mounts"></div>
         </div>
         <div class="col">
-          <h2>电脑难度</h2>
+          <h2>Bot difficulty</h2>
           <div id="difficulty" class="diffs"></div>
-          <p class="tip">WASD 移动 · J 普攻 · 按住 K 蓄力 · 空格 穿梭 · U I 技能 · O 大招 · R 坐骑 · B 回城</p>
+          <p class="tip">WASD move · J attack · hold K charge · Space dash · U I skills · O ultimate · R mount · B recall</p>
         </div>
-        <button id="start" class="primary">开始对局 <small>Enter</small></button>
+        <button id="start" class="primary">Start match <small>Enter</small></button>
       </div>
     </div>
   </div>
 
   <div id="pause" class="screen hidden">
     <div class="dialog">
-      <h1>暂停</h1>
-      <button id="resume" class="primary">继续 <small>Esc</small></button>
-      <button id="quit">返回主菜单</button>
+      <h1>Paused</h1>
+      <button id="resume" class="primary">Resume <small>Esc</small></button>
+      <button id="quit">Main menu</button>
     </div>
   </div>
 
   <div id="result" class="screen hidden">
     <div class="dialog wide">
-      <h1 id="result-title">胜利</h1>
+      <h1 id="result-title">Victory</h1>
       <div id="result-stats" class="result-stats"></div>
-      <button id="again" class="primary">再来一局 <small>Enter</small></button>
-      <button id="back">返回主菜单</button>
+      <button id="again" class="primary">Play again <small>Enter</small></button>
+      <button id="back">Main menu</button>
     </div>
   </div>
 

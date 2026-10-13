@@ -12,13 +12,13 @@ export function enemiesOf(game, team) {
 export function dealDamage(game, src, target, amount, opts = {}) {
   if (!target.alive || !target.targetable || target.team === src.team) return false;
   if (target.invuln > 0) {
-    if (!opts.dot && target.kind === 'hero') game.fx.text(target.x, target.y, 70, '闪避', '#9fe8ff', 14);
+    if (!opts.dot && target.kind === 'hero') game.fx.text(target.x, target.y, 70, 'Dodged', '#9fe8ff', 12);
     return false;
   }
   if (target.isInvulnerable?.()) {
     if (!opts.dot && game.time - (target._immuneMsgT || 0) > 0.6 && (src === game.player || src.owner === game.player)) {
       target._immuneMsgT = game.time;
-      game.fx.text(target.x, target.y, 150, target.kind === 'core' ? '先摧毁一座内塔' : '先摧毁外塔', '#c9c3e0', 15);
+      game.fx.text(target.x, target.y, 150, target.kind === 'core' ? 'Destroy an inner tower first' : 'Destroy the outer tower first', '#c9c3e0', 15);
     }
     return false;
   }
@@ -39,7 +39,7 @@ export function dealDamage(game, src, target, amount, opts = {}) {
     target.shield -= absorbed;
     amount -= absorbed;
     if (amount <= 0) {
-      if (!opts.dot) game.fx.text(target.x, target.y, 80, '格挡', '#ffe58a', 13);
+      if (!opts.dot) game.fx.text(target.x, target.y, 80, 'Blocked', '#ffe58a', 11);
       return true;
     }
   }
@@ -84,8 +84,8 @@ export function dealDamage(game, src, target, amount, opts = {}) {
   const st = target.status;
   if (st && target.mass < 99) {
     const cc = target.kind === 'monster' && target.boss ? 0.3 : 1;
-    if (opts.stun) { st.stun = Math.max(st.stun, opts.stun * cc); if (near) game.fx.text(target.x, target.y, 95, '眩晕', '#ffe066', 14); }
-    if (opts.root) { st.root = Math.max(st.root, opts.root * cc); if (near) game.fx.text(target.x, target.y, 95, '定身', '#8fe3ff', 14); }
+    if (opts.stun) { st.stun = Math.max(st.stun, opts.stun * cc); if (near) game.fx.text(target.x, target.y, 95, 'Stunned', '#ffe066', 12); }
+    if (opts.root) { st.root = Math.max(st.root, opts.root * cc); if (near) game.fx.text(target.x, target.y, 95, 'Rooted', '#8fe3ff', 12); }
     if (opts.slow) {
       st.slowAmt = Math.max(st.slow > 0 ? st.slowAmt : 0, opts.slow.amt);
       st.slow = Math.max(st.slow, opts.slow.t);

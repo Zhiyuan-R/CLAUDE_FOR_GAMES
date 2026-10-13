@@ -99,16 +99,16 @@ function refreshMenu() {
   det.style.setProperty('--c', h.color);
   det.style.setProperty('--c2', h.color2);
   det.innerHTML = `
-    <div class="hero-head"><img class="big-pt" alt="" src="${portrait(h, 256).toDataURL()}"><div><div class="hero-name">${h.name}</div><div class="hero-en">${h.en} · ${h.role}</div><div class="stats"><span>生命 ${h.maxHp}</span><span>移速 ${h.speed}</span><span>${h.ranged ? '远程' : '近战'}</span></div></div></div>
+    <div class="hero-head"><img class="big-pt" alt="" src="${portrait(h, 256).toDataURL()}"><div><div class="hero-name">${h.name}</div><div class="hero-en">${h.title} · ${h.role}</div><div class="stats"><span>HP ${h.maxHp}</span><span>Speed ${h.speed}</span><span>${h.ranged ? 'Ranged' : 'Melee'}</span></div></div></div>
     <p class="hero-blurb">${h.blurb}</p>
     <ul class="kit">
-      <li><kbd>J</kbd><b>${h.basic.name}</b><span>${h.basic.times.length} 段连击</span></li>
-      <li><kbd>K</kbd><b>${h.charged.name}</b><span>按住蓄力，松开释放</span></li>
-      <li><kbd>空格</kbd><b>${h.dash.name}</b><span>${h.dash.type === 'blink' ? '瞬移' : h.dash.type === 'roll' ? '翻滚' : '冲刺'} · 冷却 ${h.dash.cd}s · 无敌帧</span></li>
+      <li><kbd>J</kbd><b>${h.basic.name}</b><span>${h.basic.times.length}-hit combo</span></li>
+      <li><kbd>K</kbd><b>${h.charged.name}</b><span>Hold to charge, release to unleash</span></li>
+      <li><kbd>Space</kbd><b>${h.dash.name}</b><span>${h.dash.type === 'blink' ? 'Blink' : h.dash.type === 'roll' ? 'Roll' : 'Dash'} · ${h.dash.cd}s cooldown · invulnerable</span></li>
       <li><kbd>U</kbd><b>${h.skills[0].name}</b><span>${h.skills[0].desc}</span></li>
       <li><kbd>I</kbd><b>${h.skills[1].name}</b><span>${h.skills[1].desc}</span></li>
-      <li class="ult"><kbd>O</kbd><b>${h.skills[2].name}</b><span>${h.skills[2].desc} · 冷却 ${h.skills[2].cd}s</span></li>
-      <li class="passive"><kbd>被动</kbd><b>${h.passiveName}</b><span>${h.passiveDesc}</span></li>
+      <li class="ult"><kbd>O</kbd><b>${h.skills[2].name}</b><span>${h.skills[2].desc} · ${h.skills[2].cd}s cooldown</span></li>
+      <li class="passive"><kbd>Passive</kbd><b>${h.passiveName}</b><span>${h.passiveDesc}</span></li>
     </ul>`;
   document.querySelector('.hero-btn.active')?.scrollIntoView({ block: 'nearest' });
 }
@@ -121,16 +121,16 @@ function toMenu() {
 
 function showResult() {
   const win = game.winner === game.player.team;
-  $('result-title').textContent = win ? '胜利' : '失败';
+  $('result-title').textContent = win ? 'Victory' : 'Defeat';
   $('result-title').className = win ? 'win' : 'lose';
   const mm = Math.floor(game.time / 60), ss = String(Math.floor(game.time % 60)).padStart(2, '0');
-  const row = (h) => `<div class="row${h === game.player ? ' me' : ''}"><span style="color:${h.team ? '#ff8a8a' : '#8fd0ff'}">${h === game.player ? '你 · ' : ''}${h.name}</span><span>${h.stats.kills}/${h.stats.deaths}/${h.stats.assists}</span><span>${h.stats.cs}</span><span>${h.items.length}</span><span>${h.stats.dmg}</span></div>`;
+  const row = (h) => `<div class="row${h === game.player ? ' me' : ''}"><span style="color:${h.team ? '#ff8a8a' : '#8fd0ff'}">${h === game.player ? 'You · ' : ''}${h.name}</span><span>${h.stats.kills}/${h.stats.deaths}/${h.stats.assists}</span><span>${h.stats.cs}</span><span>${h.items.length}</span><span>${h.stats.dmg}</span></div>`;
   $('result-stats').innerHTML = `
-    <div class="row head"><span></span><span>击杀/死亡/助攻</span><span>补刀</span><span>装备</span><span>伤害</span></div>
+    <div class="row head"><span></span><span>K / D / A</span><span>CS</span><span>Items</span><span>Damage</span></div>
     ${game.heroes.filter((h) => h.team === 0).map(row).join('')}
     <div class="sep"></div>
     ${game.heroes.filter((h) => h.team === 1).map(row).join('')}
-    <div class="time">对局时长 ${mm}:${ss} · 比分 ${game.score[0]} : ${game.score[1]}</div>`;
+    <div class="time">Match length ${mm}:${ss} · Score ${game.score[0]} : ${game.score[1]}</div>`;
   setMode('result');
 }
 
