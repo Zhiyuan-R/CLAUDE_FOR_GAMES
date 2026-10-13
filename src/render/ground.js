@@ -1,11 +1,22 @@
-// 预渲染整张地面：拼接石板兵道、苔藓与草丛、毒沼、悬崖、基地法阵、烘焙的火把光照
-import { WORLD, BOUNDS, YS, LANE_Y, SPAWN, TEAM_COLORS } from '../config.js';
+// 预渲染地牢地面：石板兵道、野区泥地与苔藓、基地法阵、Boss 巢穴、墙脚阴影、烘焙烛光
+import { WORLD, YS, TILE, GRID_W, GRID_H, SPAWN, TEAM_COLORS, mirror } from '../config.js';
 import { seeded } from '../math.js';
-import { buildProps } from '../map.js';
+import { solid, buildProps } from '../map.js';
 
-export const GROUND_PAD = { x: 260, y: 260 };
-const RES = 1.25;
+export const GROUND_PAD = { x: 40, y: 40 };
+const RES = 1;
 const INK = '#140c20';
+
+// 判断瓦片属于哪类区域
+function region(i, j) {
+  const inBase = (a, b) => a >= 1 && a <= 8 && b >= 10 && b <= 21;
+  const [mi, mj] = [GRID_W - 1 - i, GRID_H - 1 - j];
+  if (inBase(i, j) || inBase(mi, mj)) return 'base';
+  const lane = (a, b) => (b >= 3 && b <= 5) || (b >= 26 && b <= 28) || (b >= 14 && b <= 17 && a >= 8 && a <= 51) || (a >= 6 && a <= 8 && (b <= 9 || b >= 22));
+  if (lane(i, j) || lane(mi, mj)) return 'lane';
+  if (i >= 27 && i <= 32 && ((j >= 7 && j <= 11) || (j >= 20 && j <= 24))) return j < 16 ? 'dragon' : 'colossus';
+  return 'jungle';
+}
 
 export function buildGround() {
   const rnd = seeded(42);
@@ -21,173 +32,121 @@ export function buildGround() {
   ctx.lineCap = 'round';
   const P = (y) => y * YS;
   const R = (a, b) => a + rnd() * (b - a);
+  const T = TILE;
 
-  // 深渊
-  const bg = ctx.createLinearGradient(0, P(-GROUND_PAD.y), 0, P(WORLD.h + GROUND_PAD.y));
-  bg.addColorStop(0, '#0c0818');
-  bg.addColorStop(0.55, '#120d24');
-  bg.addColorStop(1, '#04161a');
-  ctx.fillStyle = bg;
+  ctx.fillStyle = '#0d0918';
   ctx.fillRect(-GROUND_PAD.x, P(-GROUND_PAD.y), w, h);
 
-  const gx0 = BOUNDS.x0 - 70, gx1 = BOUNDS.x1 + 70, gy0 = -40, gy1 = BOUNDS.y1 + 40;
-
-  // ── 下方悬崖：分层岩壁 ──
-  const lip = [];
-  for (let x = gx0 - 40; x <= gx1 + 40; x += 30) lip.push([x, P(gy1) + R(-4, 6)]);
-  for (let layer = 0; layer < 3; layer++) {
-    ctx.beginPath();
-    ctx.moveTo(lip[0][0], lip[0][1]);
-    for (const [x, y] of lip) ctx.lineTo(x, y);
-    for (let i = lip.length - 1; i >= 0; i--) ctx.lineTo(lip[i][0], lip[i][1] + 40 + layer * 38 + R(0, 26));
-    ctx.closePath();
-    ctx.fillStyle = ['#2e2547', '#221b38', '#18122a'][layer];
-    ctx.fill();
-  }
-  ctx.strokeStyle = INK;
-  ctx.lineWidth = 2;
-  for (let x = gx0; x < gx1; x += R(40, 90)) {
-    ctx.beginPath();
-    ctx.moveTo(x, P(gy1) + 4);
-    ctx.lineTo(x + R(-10, 10), P(gy1) + R(40, 110));
-    ctx.stroke();
-  }
-  const mist = ctx.createLinearGradient(0, P(gy1) + 60, 0, P(gy1) + 220);
-  mist.addColorStop(0, 'rgba(50,210,190,0)');
-  mist.addColorStop(0.6, 'rgba(50,210,190,0.12)');
-  mist.addColorStop(1, 'rgba(50,210,190,0)');
-  ctx.fillStyle = mist;
-  ctx.fillRect(gx0 - 300, P(gy1) + 60, gx1 - gx0 + 600, 180);
-
-  // ── 地面主体 ──
+  // 地板区域裁剪
   ctx.save();
-  groundShape(ctx, gx0, P(gy0), gx1 - gx0, P(gy1) - P(gy0), 60);
-  ctx.fillStyle = '#2a2342';
-  ctx.fill();
+  ctx.beginPath();
+  for (let j = 0; j < GRID_H; j++) for (let i = 0; i < GRID_W; i++) if (!solid(i, j)) ctx.rect(i * T - 1, P(j * T) - 1, T + 2, P(T) + 2);
   ctx.clip();
 
-  // 绘画感色块
-  const tones = ['#30284b', '#251f3a', '#2e2a48', '#352c52', '#211c34', '#2b3040'];
-  for (let i = 0; i < 2200; i++) {
-    const x = R(gx0, gx1), y = R(gy0, gy1);
-    ctx.globalAlpha = R(0.25, 0.6);
+  // 底色：兵道深色石缝、野区泥土
+  for (let j = 0; j < GRID_H; j++) {
+    for (let i = 0; i < GRID_W; i++) {
+      if (solid(i, j)) continue;
+      const r = region(i, j);
+      ctx.fillStyle = r === 'jungle' ? '#29243a' : r === 'dragon' ? '#2e1e26' : r === 'colossus' ? '#2a2630' : '#17121f';
+      ctx.fillRect(i * T, P(j * T), T, P(T));
+    }
+  }
+  // 野区：绘画感色块与苔藓
+  const tones = ['#30284b', '#262036', '#2e2a46', '#2b3040', '#33294a'];
+  for (let n = 0; n < 9000; n++) {
+    const x = R(0, WORLD.w), y = R(0, WORLD.h);
+    const i = Math.floor(x / T), j = Math.floor(y / T);
+    if (solid(i, j) || region(i, j) !== 'jungle') continue;
+    ctx.globalAlpha = R(0.3, 0.7);
     ctx.fillStyle = tones[(rnd() * tones.length) | 0];
-    const rr = R(8, 46);
-    ctx.beginPath(); ctx.ellipse(x, P(y), rr, rr * YS * R(0.7, 1.2), R(0, 3), 0, Math.PI * 2); ctx.fill();
+    const rr = R(8, 34);
+    ctx.beginPath(); ctx.ellipse(x, P(y), rr, rr * YS, R(0, 3), 0, Math.PI * 2); ctx.fill();
   }
   ctx.globalAlpha = 1;
-
-  // 苔藓地（兵道两侧）
-  for (let i = 0; i < 110; i++) {
-    const x = R(gx0, gx1);
-    const y = rnd() < 0.5 ? R(gy0 + 150, LANE_Y - 140) : R(LANE_Y + 140, gy1 - 20);
-    const rr = R(30, 110);
+  for (let n = 0; n < 500; n++) {
+    const x = R(0, WORLD.w), y = R(0, WORLD.h);
+    const i = Math.floor(x / T), j = Math.floor(y / T);
+    if (solid(i, j) || region(i, j) === 'lane') continue;
+    const rr = R(25, 80);
     const g = ctx.createRadialGradient(x, P(y), 0, x, P(y), rr);
-    const green = rnd() < 0.7;
-    g.addColorStop(0, green ? 'rgba(78,128,62,0.5)' : 'rgba(90,70,150,0.45)');
+    g.addColorStop(0, rnd() < 0.7 ? 'rgba(78,128,62,0.45)' : 'rgba(100,70,160,0.4)');
     g.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = g;
     ctx.beginPath(); ctx.ellipse(x, P(y), rr, rr * YS, 0, 0, Math.PI * 2); ctx.fill();
   }
 
-  // ── 毒沼（地图上边缘） ──
-  for (const [px, pr] of [[330, 150], [900, 120], [1500, 170], [2080, 130], [2470, 110]]) {
-    swamp(ctx, px, P(165 + R(-15, 10)), pr, pr * 0.32, rnd);
-  }
-
-  // ── 石板兵道（共享角点的抖动网格，石板之间紧密拼接） ──
-  const cw = 62, ch = 50;
-  const lx0 = 140, lx1 = WORLD.w - 140, ly0 = LANE_Y - 130, ly1 = LANE_Y + 130;
-  const cols = Math.ceil((lx1 - lx0) / cw), rows = Math.ceil((ly1 - ly0) / ch);
+  // 石板（共享角点抖动网格）：兵道与基地铺满，野区零星
+  const cw = 62, ch = 52;
+  const cols = Math.ceil(WORLD.w / cw), rows = Math.ceil(WORLD.h / ch);
   const pt = [];
   for (let j = 0; j <= rows; j++) {
     pt.push([]);
-    for (let i = 0; i <= cols; i++) {
-      const edge = i === 0 || i === cols || j === 0 || j === rows;
-      pt[j].push([lx0 + i * cw + (edge ? 0 : R(-14, 14)), ly0 + j * ch + (edge ? 0 : R(-11, 11))]);
-    }
+    for (let i = 0; i <= cols; i++) pt[j].push([i * cw + R(-13, 13), j * ch + R(-10, 10)]);
   }
-  const cells = [];
   for (let j = 0; j < rows; j++) {
     for (let i = 0; i < cols; i++) {
-      const edgeRow = j === 0 || j === rows - 1;
-      const edgeCol = i < 2 || i > cols - 3;
-      if ((edgeRow && rnd() < 0.45) || (edgeCol && rnd() < 0.5) || rnd() < 0.03) continue;
-      cells.push([pt[j][i], pt[j][i + 1], pt[j + 1][i + 1], pt[j + 1][i]]);
+      const cx = (i + 0.5) * cw, cy = (j + 0.5) * ch;
+      const ti = Math.floor(cx / T), tj = Math.floor(cy / T);
+      if (solid(ti, tj)) continue;
+      const r = region(ti, tj);
+      const keep = r === 'lane' || r === 'base' ? 0.97 : r === 'jungle' ? 0.16 : 0.55;
+      if (rnd() > keep) continue;
+      stone(ctx, [pt[j][i], pt[j][i + 1], pt[j + 1][i + 1], pt[j + 1][i]], P, rnd, r);
     }
   }
-  // 石缝底色
-  ctx.fillStyle = '#16111f';
-  for (const q of cells) { poly(ctx, q, P); ctx.fill(); }
-  for (const q of cells) stone(ctx, q, P, rnd);
 
-  // ── 散落碎石与小石子 ──
-  for (let i = 0; i < 260; i++) {
-    const x = R(gx0 + 20, gx1 - 20), y = R(gy0 + 180, gy1 - 10);
-    const rr = R(2.5, 7);
-    ctx.beginPath(); ctx.ellipse(x, P(y), rr, rr * 0.65, R(0, 3), 0, Math.PI * 2);
-    ctx.fillStyle = rnd() < 0.5 ? '#4a4268' : '#3b3456'; ctx.fill();
-    ctx.strokeStyle = INK; ctx.lineWidth = 1.2; ctx.stroke();
-    ctx.fillStyle = 'rgba(160,150,210,0.35)';
-    ctx.beginPath(); ctx.ellipse(x - rr * 0.3, P(y) - rr * 0.25, rr * 0.4, rr * 0.2, 0, 0, Math.PI * 2); ctx.fill();
-  }
+  // Boss 巢穴：熔岩裂缝 / 远古符文
+  lavaCracks(ctx, 2400, 740, rnd, P);
+  runeCircle(ctx, 2400, 1820, 150, '#d9a35a', rnd);
+  runeCircle(ctx, WORLD.w / 2, WORLD.h / 2, 150, '#8a74ff', rnd);
 
-  // ── 基地法阵 ──
+  // 基地法阵与泉水
   for (const team of [0, 1]) {
-    const cx = team === 0 ? 290 : WORLD.w - 290;
-    plaza(ctx, cx, LANE_Y, 260, TEAM_COLORS[team], rnd);
+    const core = team === 0 ? { x: 300, y: 1280 } : mirror(300, 1280);
+    plaza(ctx, core.x, core.y, 250, TEAM_COLORS[team], rnd);
     const sp = SPAWN[team];
-    const g2 = ctx.createRadialGradient(sp.x, P(sp.y), 10, sp.x, P(sp.y), 120);
-    g2.addColorStop(0, team === 0 ? 'rgba(79,176,255,0.4)' : 'rgba(255,77,94,0.4)');
+    const g2 = ctx.createRadialGradient(sp.x, P(sp.y), 10, sp.x, P(sp.y), 150);
+    g2.addColorStop(0, team === 0 ? 'rgba(79,176,255,0.45)' : 'rgba(255,77,94,0.45)');
     g2.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = g2;
-    ctx.beginPath(); ctx.ellipse(sp.x, P(sp.y), 120, 120 * YS, 0, 0, Math.PI * 2); ctx.fill();
-  }
-  runeCircle(ctx, WORLD.w / 2, LANE_Y, 125, '#8a74ff', rnd);
-
-  // ── 草丛（带墨线的尖叶簇） ──
-  for (let i = 0; i < 700; i++) {
-    const x = R(gx0, gx1);
-    const y = rnd() < 0.5 ? R(gy0 + 175, LANE_Y - 120) : R(LANE_Y + 125, gy1 - 6);
-    const green = rnd() < 0.55;
-    tuft(ctx, x, P(y), R(0.6, 1.3), green ? ['#3f6e35', '#5f9a48'] : ['#3d2c66', '#5f48a3'], rnd);
-  }
-  // 石板缝隙里的小草
-  for (let i = 0; i < 160; i++) {
-    const x = R(lx0, lx1), y = R(ly0, ly1);
-    tuft(ctx, x, P(y), R(0.35, 0.6), ['#3f6e35', '#5f9a48'], rnd);
+    ctx.beginPath(); ctx.ellipse(sp.x, P(sp.y), 150, 150 * YS, 0, 0, Math.PI * 2); ctx.fill();
   }
 
-  // ── 烘焙火把光照 ──
-  ctx.globalCompositeOperation = 'lighter';
-  for (const p of buildProps()) {
-    if (p.type === 'torch') {
-      const g = ctx.createRadialGradient(p.x, P(p.y), 0, p.x, P(p.y), 240);
-      g.addColorStop(0, 'rgba(255,140,50,0.28)');
-      g.addColorStop(0.5, 'rgba(255,110,40,0.1)');
-      g.addColorStop(1, 'rgba(255,90,30,0)');
-      ctx.fillStyle = g;
-      ctx.beginPath(); ctx.ellipse(p.x, P(p.y), 240, 240 * YS, 0, 0, Math.PI * 2); ctx.fill();
+  // 碎石、草丛
+  for (let n = 0; n < 1600; n++) {
+    const x = R(0, WORLD.w), y = R(0, WORLD.h);
+    const i = Math.floor(x / T), j = Math.floor(y / T);
+    if (solid(i, j)) continue;
+    const r = region(i, j);
+    if (rnd() < (r === 'lane' ? 0.25 : 0.6)) tuft(ctx, x, P(y), R(0.45, 1.1), rnd() < 0.6 ? ['#3f6e35', '#5f9a48'] : ['#3d2c66', '#5f48a3'], rnd);
+    else pebble(ctx, x, P(y), R(2.5, 6.5), rnd);
+  }
+
+  // 墙脚阴影（环境光遮蔽）
+  for (let j = 0; j < GRID_H; j++) {
+    for (let i = 0; i < GRID_W; i++) {
+      if (solid(i, j)) continue;
+      const x0 = i * T, y0 = P(j * T), th = P(T);
+      if (solid(i, j - 1)) { const g = ctx.createLinearGradient(0, y0, 0, y0 + th * 0.8); g.addColorStop(0, 'rgba(6,3,14,0.75)'); g.addColorStop(1, 'rgba(6,3,14,0)'); ctx.fillStyle = g; ctx.fillRect(x0, y0, T, th * 0.8); }
+      if (solid(i - 1, j)) { const g = ctx.createLinearGradient(x0, 0, x0 + 26, 0); g.addColorStop(0, 'rgba(6,3,14,0.6)'); g.addColorStop(1, 'rgba(6,3,14,0)'); ctx.fillStyle = g; ctx.fillRect(x0, y0, 26, th); }
+      if (solid(i + 1, j)) { const g = ctx.createLinearGradient(x0 + T, 0, x0 + T - 26, 0); g.addColorStop(0, 'rgba(6,3,14,0.6)'); g.addColorStop(1, 'rgba(6,3,14,0)'); ctx.fillStyle = g; ctx.fillRect(x0 + T - 26, y0, 26, th); }
     }
   }
+
+  // 烘焙烛光
+  ctx.globalCompositeOperation = 'lighter';
+  for (const p of buildProps()) {
+    if (p.type !== 'sconce') continue;
+    const g = ctx.createRadialGradient(p.x, P(p.y + 30), 0, p.x, P(p.y + 30), 210);
+    g.addColorStop(0, 'rgba(255,140,50,0.26)');
+    g.addColorStop(0.5, 'rgba(255,110,40,0.09)');
+    g.addColorStop(1, 'rgba(255,90,30,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.ellipse(p.x, P(p.y + 30), 210, 210 * YS, 0, 0, Math.PI * 2); ctx.fill();
+  }
   ctx.globalCompositeOperation = 'source-over';
-
-  // 上方森林投下的暗影
-  const shade = ctx.createLinearGradient(0, P(gy0), 0, P(BOUNDS.y0 + 120));
-  shade.addColorStop(0, 'rgba(8,4,18,0.9)');
-  shade.addColorStop(0.6, 'rgba(8,4,18,0.35)');
-  shade.addColorStop(1, 'rgba(8,4,18,0)');
-  ctx.fillStyle = shade;
-  ctx.fillRect(gx0, P(gy0), gx1 - gx0, P(BOUNDS.y0 + 120) - P(gy0));
   ctx.restore();
-
-  // 地面边缘墨线 + 悬崖口高光
-  ctx.strokeStyle = INK;
-  ctx.lineWidth = 4;
-  ctx.beginPath(); ctx.moveTo(lip[0][0], lip[0][1]); for (const [x, y] of lip) ctx.lineTo(x, y); ctx.stroke();
-  ctx.strokeStyle = 'rgba(170,160,220,0.35)';
-  ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(lip[0][0], lip[0][1] - 3); for (const [x, y] of lip) ctx.lineTo(x, y - 3); ctx.stroke();
 
   return { canvas: c, res: RES };
 }
@@ -198,45 +157,37 @@ function poly(ctx, q, P) {
   ctx.closePath();
 }
 
-function stone(ctx, q, P, rnd) {
-  // 向中心收缩形成石缝
+function stone(ctx, q, P, rnd, region) {
   const cx = q.reduce((s, p) => s + p[0], 0) / 4, cy = q.reduce((s, p) => s + p[1], 0) / 4;
-  const s = q.map(([x, y]) => [x + (cx - x) * 0.07, y + (cy - y) * 0.09]);
-  const l = 30 + rnd() * 9;
-  const hue = 250 + rnd() * 16;
+  const s = q.map(([x, y]) => [x + (cx - x) * 0.08, y + (cy - y) * 0.1]);
+  const l = 28 + rnd() * 9;
+  const hue = region === 'dragon' ? 345 + rnd() * 10 : region === 'colossus' ? 30 + rnd() * 10 : 250 + rnd() * 16;
+  const sat = region === 'dragon' || region === 'colossus' ? 14 : 16;
   poly(ctx, s, P);
-  ctx.fillStyle = `hsl(${hue},16%,${l}%)`;
+  ctx.fillStyle = `hsl(${hue},${sat}%,${l}%)`;
   ctx.fill();
   ctx.save();
   ctx.clip();
-  // 斜面：上沿受光、下沿背光
   ctx.lineWidth = 5;
-  ctx.strokeStyle = `hsla(${hue},30%,${l + 18}%,0.55)`;
+  ctx.strokeStyle = `hsla(${hue},30%,${l + 18}%,0.5)`;
   ctx.beginPath(); ctx.moveTo(s[3][0], P(s[3][1])); ctx.lineTo(s[0][0], P(s[0][1])); ctx.lineTo(s[1][0], P(s[1][1])); ctx.stroke();
   ctx.strokeStyle = `hsla(${hue},20%,${l - 14}%,0.8)`;
   ctx.beginPath(); ctx.moveTo(s[1][0], P(s[1][1])); ctx.lineTo(s[2][0], P(s[2][1])); ctx.lineTo(s[3][0], P(s[3][1])); ctx.stroke();
-  // 斑点纹理
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 4; i++) {
     ctx.fillStyle = rnd() < 0.5 ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.12)';
-    const px = cx + (rnd() - 0.5) * 40, py = cy + (rnd() - 0.5) * 30;
-    ctx.beginPath(); ctx.ellipse(px, P(py), 2 + rnd() * 6, 1.5 + rnd() * 3, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(cx + (rnd() - 0.5) * 40, P(cy + (rnd() - 0.5) * 30), 2 + rnd() * 6, 1.5 + rnd() * 3, 0, 0, Math.PI * 2); ctx.fill();
   }
-  // 苔藓侵蚀
-  if (rnd() < 0.18) {
-    const k = (rnd() * 4) | 0;
-    const [mx, my] = s[k];
+  if (rnd() < 0.16) {
+    const [mx, my] = s[(rnd() * 4) | 0];
     ctx.fillStyle = 'rgba(80,135,60,0.85)';
     ctx.beginPath(); ctx.ellipse(mx, P(my), 14 + rnd() * 14, 7 + rnd() * 6, rnd() * 3, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = 'rgba(120,180,80,0.7)';
-    ctx.beginPath(); ctx.ellipse(mx + 2, P(my) - 2, 6 + rnd() * 6, 3 + rnd() * 3, 0, 0, Math.PI * 2); ctx.fill();
   }
   ctx.restore();
   poly(ctx, s, P);
   ctx.strokeStyle = INK;
   ctx.lineWidth = 1.8;
   ctx.stroke();
-  // 裂纹
-  if (rnd() < 0.3) {
+  if (rnd() < 0.25) {
     ctx.lineWidth = 1.2;
     ctx.beginPath();
     let x = cx + (rnd() - 0.5) * 20, y = cy + (rnd() - 0.5) * 14;
@@ -269,73 +220,31 @@ function tuft(ctx, x, y, s, cols, rnd) {
   ctx.restore();
 }
 
-function swamp(ctx, x, y, rx, ry, rnd) {
-  ctx.save();
-  // 外缘泥岸
-  ctx.beginPath(); blob(ctx, x, y, rx + 14, ry + 8, rnd, 0.12);
-  ctx.fillStyle = '#1f2a1c'; ctx.fill();
-  ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.stroke();
-  ctx.beginPath(); blob(ctx, x, y, rx, ry, rnd, 0.1);
-  const g = ctx.createRadialGradient(x, y, 0, x, y, rx);
-  g.addColorStop(0, '#b8f25a');
-  g.addColorStop(0.6, '#6fbf2e');
-  g.addColorStop(1, '#3f7a1f');
-  ctx.fillStyle = g;
-  ctx.fill();
-  ctx.strokeStyle = INK; ctx.lineWidth = 2.5; ctx.stroke();
-  ctx.clip();
-  // 涟漪与气泡
-  ctx.strokeStyle = 'rgba(220,255,160,0.55)';
-  ctx.lineWidth = 2;
-  for (let i = 0; i < 5; i++) {
-    const px = x + (rnd() - 0.5) * rx * 1.4, py = y + (rnd() - 0.5) * ry;
-    const rr = 6 + rnd() * 18;
-    ctx.beginPath(); ctx.ellipse(px, py, rr, rr * 0.4, 0, 0, Math.PI * 2); ctx.stroke();
-  }
-  for (let i = 0; i < 12; i++) {
-    const px = x + (rnd() - 0.5) * rx * 1.6, py = y + (rnd() - 0.5) * ry * 1.4;
-    ctx.beginPath(); ctx.arc(px, py, 1.5 + rnd() * 3, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(230,255,190,0.7)'; ctx.fill();
-  }
-  ctx.restore();
-  // 发光
-  ctx.save();
-  ctx.globalCompositeOperation = 'lighter';
-  const gl = ctx.createRadialGradient(x, y, 0, x, y, rx * 1.6);
-  gl.addColorStop(0, 'rgba(150,240,70,0.22)');
-  gl.addColorStop(1, 'rgba(150,240,70,0)');
-  ctx.fillStyle = gl;
-  ctx.beginPath(); ctx.ellipse(x, y, rx * 1.6, rx * 0.7, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.restore();
+function pebble(ctx, x, y, rr, rnd) {
+  ctx.beginPath(); ctx.ellipse(x, y, rr, rr * 0.65, rnd() * 3, 0, Math.PI * 2);
+  ctx.fillStyle = rnd() < 0.5 ? '#4a4268' : '#3b3456'; ctx.fill();
+  ctx.strokeStyle = INK; ctx.lineWidth = 1.2; ctx.stroke();
+  ctx.fillStyle = 'rgba(160,150,210,0.35)';
+  ctx.beginPath(); ctx.ellipse(x - rr * 0.3, y - rr * 0.25, rr * 0.4, rr * 0.2, 0, 0, Math.PI * 2); ctx.fill();
 }
 
-function blob(ctx, x, y, rx, ry, rnd, amt) {
-  const n = 16;
-  const pts = [];
-  for (let i = 0; i < n; i++) {
-    const a = (i / n) * Math.PI * 2;
-    const k = 1 + (rnd() - 0.5) * amt * 2;
-    pts.push([x + Math.cos(a) * rx * k, y + Math.sin(a) * ry * k]);
+function lavaCracks(ctx, x, y, rnd, P) {
+  ctx.save();
+  for (let k = 0; k < 14; k++) {
+    let px = x + (rnd() - 0.5) * 360, py = y + (rnd() - 0.5) * 260;
+    const pts = [[px, py]];
+    for (let s = 0; s < 4; s++) { px += (rnd() - 0.5) * 70; py += (rnd() - 0.5) * 50; pts.push([px, py]); }
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = INK; ctx.lineWidth = 7;
+    ctx.beginPath(); pts.forEach(([a, b], i) => (i ? ctx.lineTo(a, P(b)) : ctx.moveTo(a, P(b)))); ctx.stroke();
+    ctx.strokeStyle = '#ff6a1a'; ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = 'rgba(255,140,40,0.35)'; ctx.lineWidth = 12;
+    ctx.stroke();
+    ctx.globalCompositeOperation = 'source-over';
   }
-  ctx.moveTo((pts[0][0] + pts[n - 1][0]) / 2, (pts[0][1] + pts[n - 1][1]) / 2);
-  for (let i = 0; i < n; i++) {
-    const p = pts[i], q = pts[(i + 1) % n];
-    ctx.quadraticCurveTo(p[0], p[1], (p[0] + q[0]) / 2, (p[1] + q[1]) / 2);
-  }
-  ctx.closePath();
-}
-
-function groundShape(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.restore();
 }
 
 function runeCircle(ctx, x, y, r, color, rnd) {
@@ -355,9 +264,8 @@ function runeCircle(ctx, x, y, r, color, rnd) {
   ctx.lineWidth = 1.5;
   ctx.beginPath(); ctx.arc(0, 0, r * 0.8, 0, Math.PI * 2); ctx.stroke();
   for (let i = 0; i < 12; i++) {
-    const a = (i / 12) * Math.PI * 2;
     ctx.save();
-    ctx.rotate(a);
+    ctx.rotate((i / 12) * Math.PI * 2);
     ctx.beginPath();
     ctx.moveTo(r * 0.83, -5); ctx.lineTo(r * 0.95, 0); ctx.lineTo(r * 0.83, 5);
     if (rnd() < 0.5) { ctx.moveTo(r * 0.87, -8); ctx.lineTo(r * 0.87, 8); }
@@ -380,7 +288,6 @@ function plaza(ctx, x, y, r, color, rnd) {
   ctx.scale(1, YS);
   ctx.fillStyle = '#16111f';
   ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
-  // 环形石砖
   const rings = [[0, r * 0.3, 1], [r * 0.3, r * 0.58, 10], [r * 0.58, r * 0.8, 16], [r * 0.8, r, 22]];
   for (const [r0, r1, n] of rings) {
     for (let i = 0; i < n; i++) {
@@ -388,8 +295,7 @@ function plaza(ctx, x, y, r, color, rnd) {
       ctx.beginPath();
       if (n === 1) ctx.arc(0, 0, r1 - 4, 0, Math.PI * 2);
       else { ctx.arc(0, 0, r1 - 3, a0, a1); ctx.arc(0, 0, r0 + 3, a1, a0, true); ctx.closePath(); }
-      const l = 32 + rnd() * 9;
-      ctx.fillStyle = `hsl(${252 + rnd() * 12},18%,${l}%)`;
+      ctx.fillStyle = `hsl(${252 + rnd() * 12},18%,${32 + rnd() * 9}%)`;
       ctx.fill();
       ctx.strokeStyle = INK;
       ctx.lineWidth = 2;
@@ -404,11 +310,75 @@ function plaza(ctx, x, y, r, color, rnd) {
   ctx.globalAlpha = 0.22;
   ctx.lineWidth = 12;
   ctx.beginPath(); ctx.arc(0, 0, r * 0.58, 0, Math.PI * 2); ctx.stroke();
-  ctx.globalAlpha = 0.4;
-  ctx.lineWidth = 2;
-  for (let i = 0; i < 8; i++) {
-    const a = (i / 8) * Math.PI * 2;
-    ctx.beginPath(); ctx.moveTo(Math.cos(a) * r * 0.32, Math.sin(a) * r * 0.32); ctx.lineTo(Math.cos(a) * r * 0.56, Math.sin(a) * r * 0.56); ctx.stroke();
-  }
   ctx.restore();
+}
+
+// ───────────── 墙体精灵（每帧按瓦片贴图） ─────────────
+export const SPR = 2;
+export function buildWallSprites(wallH) {
+  const rnd = seeded(99);
+  const T = TILE, th = TILE * YS;
+  const make = (wd, ht) => { const c = document.createElement('canvas'); c.width = Math.ceil(wd * SPR); c.height = Math.ceil(ht * SPR); const x = c.getContext('2d'); x.scale(SPR, SPR); return [c, x]; };
+  const tops = [], fronts = [];
+  for (let v = 0; v < 4; v++) {
+    const [c, x] = make(T, th);
+    x.fillStyle = '#1f1930';
+    x.fillRect(0, 0, T, th);
+    for (let k = 0; k < 10; k++) {
+      x.fillStyle = rnd() < 0.5 ? 'rgba(70,60,110,0.3)' : 'rgba(6,3,14,0.35)';
+      x.beginPath(); x.ellipse(rnd() * T, rnd() * th, 4 + rnd() * 12, 3 + rnd() * 6, 0, 0, Math.PI * 2); x.fill();
+    }
+    // 顶面石块缝
+    x.strokeStyle = 'rgba(14,8,26,0.7)';
+    x.lineWidth = 1.5;
+    x.beginPath(); x.moveTo(0, th * 0.5 + (rnd() - 0.5) * 6); x.lineTo(T, th * 0.5 + (rnd() - 0.5) * 6);
+    const sx = T * (0.3 + rnd() * 0.4);
+    x.moveTo(sx, 0); x.lineTo(sx + (rnd() - 0.5) * 8, th * 0.5);
+    x.stroke();
+    if (rnd() < 0.5) { x.fillStyle = 'rgba(80,135,60,0.6)'; x.beginPath(); x.ellipse(rnd() * T, rnd() * th, 10 + rnd() * 10, 4 + rnd() * 4, 0, 0, Math.PI * 2); x.fill(); }
+    tops.push(c);
+
+    const [f, y] = make(T, wallH);
+    const g = y.createLinearGradient(0, 0, 0, wallH);
+    g.addColorStop(0, '#554a7c');
+    g.addColorStop(0.55, '#3d345c');
+    g.addColorStop(1, '#241d38');
+    y.fillStyle = g;
+    y.fillRect(0, 0, T, wallH);
+    // 砖块
+    const rows = 4, rh = wallH / rows;
+    y.strokeStyle = INK;
+    y.lineWidth = 2;
+    for (let r = 0; r < rows; r++) {
+      const yy = r * rh;
+      y.beginPath(); y.moveTo(0, yy); y.lineTo(T, yy); y.stroke();
+      const off = r % 2 ? T * 0.5 : T * 0.25;
+      for (let bx = off; bx < T; bx += T * 0.5) { y.beginPath(); y.moveTo(bx, yy); y.lineTo(bx, yy + rh); y.stroke(); }
+      // 砖块高光
+      y.fillStyle = 'rgba(160,150,220,0.12)';
+      y.fillRect(0, yy + 2, T, 3);
+    }
+    // 苔藓垂挂与裂缝
+    if (rnd() < 0.6) {
+      y.fillStyle = '#4f7d3a';
+      const mx = rnd() * T;
+      y.beginPath(); y.moveTo(mx - 14, 0); y.quadraticCurveTo(mx - 10, 14 + rnd() * 16, mx, 8); y.quadraticCurveTo(mx + 6, 20 + rnd() * 14, mx + 14, 0); y.closePath(); y.fill();
+      y.strokeStyle = INK; y.lineWidth = 1.2; y.stroke();
+    }
+    if (rnd() < 0.5) {
+      y.strokeStyle = INK; y.lineWidth = 1.4;
+      let cx = rnd() * T, cy = rh * (1 + rnd() * 2);
+      y.beginPath(); y.moveTo(cx, cy);
+      for (let s = 0; s < 3; s++) { cx += (rnd() - 0.5) * 16; cy += rnd() * 10; y.lineTo(cx, cy); }
+      y.stroke();
+    }
+    // 底部与地面接缝
+    y.fillStyle = 'rgba(8,4,16,0.55)';
+    y.fillRect(0, wallH - 6, T, 6);
+    // 顶沿高光
+    y.fillStyle = 'rgba(190,180,240,0.35)';
+    y.fillRect(0, 0, T, 2.5);
+    fronts.push(f);
+  }
+  return { tops, fronts };
 }

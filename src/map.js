@@ -1,62 +1,148 @@
-// 地图布局：障碍物（可阻挡移动与飞行物）与装饰物件，按中心点对称摆放
-import { WORLD, BOUNDS, mirror } from './config.js';
+// 地牢地图：墙体网格、三条兵线、野区房间、Boss 巢穴、防御塔与营地位置、装饰物件
+// 所有布局只写蓝方一半，另一半按地图中心点对称生成
+import { TILE, GRID_W, GRID_H, mirror } from './config.js';
 import { seeded } from './math.js';
 
-export const TOWER_SPOTS = [
-  { kind: 'core', x: 300 },
-  { kind: 'tower', x: 860 },
-];
+const W = GRID_W, H = GRID_H;
+const mt = (i, j) => [W - 1 - i, H - 1 - j];
 
+// 地板区域（含端点的瓦片矩形）[i0, j0, i1, j1]
+const CARVE = [
+  [1, 10, 8, 21], // 基地
+  [6, 3, 8, 9], [6, 22, 8, 28], // 基地通往上下路
+  [6, 3, 53, 5], // 上路
+  [8, 14, 51, 17], // 中路
+  [11, 7, 17, 11], [13, 6, 14, 6], [18, 9, 19, 10], [11, 12, 11, 13], // 野区 A
+  [20, 8, 25, 12], [22, 13, 23, 13], [26, 9, 26, 10], // 野区 B
+  [27, 7, 32, 11], [29, 6, 30, 6], [29, 12, 30, 13], // 上方 Boss 巢穴
+  [11, 20, 17, 24], [13, 25, 14, 25], [18, 21, 19, 22], [11, 18, 11, 19], // 野区 C
+  [20, 19, 25, 23], [22, 18, 23, 18], [26, 21, 26, 22], // 野区 D
+  [27, 13, 32, 18], // 中央十字路口
+];
+// 房间与中路中的石柱
+const PILLARS = [[16, 8], [21, 11], [12, 23], [24, 20], [17, 14], [25, 14], [28, 14]];
+
+export const LANES = ['top', 'mid', 'bot'];
+
+function buildMap() {
+  const grid = new Uint8Array(W * H).fill(1);
+  const set = (i, j, v) => { if (i >= 0 && j >= 0 && i < W && j < H) grid[j * W + i] = v; };
+  for (const [i0, j0, i1, j1] of CARVE) {
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+      set(i, j, 0);
+      const [mi, mj] = mt(i, j);
+      set(mi, mj, 0);
+    }
+  }
+  for (const [i, j] of PILLARS) {
+    set(i, j, 1);
+    const [mi, mj] = mt(i, j);
+    set(mi, mj, 1);
+  }
+
+  // 兵线路径（蓝方 → 红方）
+  const blue = {
+    top: [[600, 1060], [600, 360], [4200, 360], [4200, 1100], [4500, 1280]],
+    mid: [[720, 1280], [4080, 1280], [4500, 1280]],
+    bot: [[600, 1500], [600, 2200], [4200, 2200], [4200, 1460], [4500, 1280]],
+  };
+  const toPts = (arr) => arr.map(([x, y]) => ({ x, y }));
+  const mirPath = (arr) => arr.map(([x, y]) => mirror(x, y));
+  const lanePaths = [
+    { top: toPts(blue.top), mid: toPts(blue.mid), bot: toPts(blue.bot) },
+    { top: mirPath(blue.bot), mid: mirPath(blue.mid), bot: mirPath(blue.top) },
+  ];
+
+  // 防御塔：每路外塔 + 内塔，基地水晶
+  const towerSpots = [];
+  const addTower = (team, lane, tier, x, y) => {
+    const p = team === 0 ? { x, y } : mirror(x, y);
+    towerSpots.push({ team, lane, tier, ...p });
+  };
+  for (const team of [0, 1]) {
+    // 红方的上路 = 蓝方下路的镜像
+    const L = (l) => (team === 0 ? l : l === 'top' ? 'bot' : l === 'bot' ? 'top' : 'mid');
+    addTower(team, L('top'), 'inner', 1000, 360);
+    addTower(team, L('top'), 'outer', 1800, 360);
+    addTower(team, L('mid'), 'inner', 1060, 1280);
+    addTower(team, L('mid'), 'outer', 1860, 1280);
+    addTower(team, L('bot'), 'inner', 1000, 2200);
+    addTower(team, L('bot'), 'outer', 1800, 2200);
+    addTower(team, 'base', 'core', 300, 1280);
+  }
+
+  // 野怪营地
+  const camps = [];
+  const addCamp = (type, x, y, side) => {
+    camps.push({ type, x, y, side: 0 });
+    const m = mirror(x, y);
+    camps.push({ type, x: m.x, y: m.y, side: 1 });
+  };
+  addCamp('skeleton', 1160, 760);
+  addCamp('golem', 1840, 840);
+  addCamp('spider', 1160, 1800);
+  addCamp('wolf', 1840, 1720);
+  camps.push({ type: 'dragon', x: 2400, y: 740, side: -1 });
+  camps.push({ type: 'colossus', x: 2400, y: 1820, side: -1 });
+
+  // 宝箱
+  const chests = [];
+  for (const [x, y] of [[930, 900], [1390, 1930], [2620, 1940]]) {
+    chests.push({ x, y });
+    chests.push(mirror(x, y));
+  }
+
+  return { grid, lanePaths, towerSpots, camps, chests };
+}
+
+export const MAP = buildMap();
+
+export function solid(i, j) {
+  if (i < 0 || j < 0 || i >= W || j >= H) return true;
+  return MAP.grid[j * W + i] === 1;
+}
+export const wallAt = (x, y) => solid(Math.floor(x / TILE), Math.floor(y / TILE));
+
+// 装饰物件：墙上烛台、蘑菇、蕨类、晶石、骸骨
 export function buildProps() {
   const rnd = seeded(7);
   const props = [];
-  const pair = (type, x, y, o = {}) => {
-    props.push({ type, x, y, seed: rnd(), ...o });
-    const m = mirror(x, y);
-    props.push({ type, x: m.x, y: m.y, seed: rnd(), ...o });
-  };
-
-  // 可碰撞障碍物：r 为碰撞半径，h 为高度（低于该高度的飞行物会被挡住）
-  pair('pillar', 640, 330, { r: 30, h: 130, solid: true });
-  pair('pillar', 640, 710, { r: 30, h: 130, solid: true });
-  pair('rock', 1070, 310, { r: 44, h: 60, solid: true });
-  pair('rock', 1080, 760, { r: 40, h: 60, solid: true });
-  pair('pillar', 1300, 330, { r: 34, h: 140, solid: true, broken: true });
-  pair('torch', 440, 240, { r: 10, h: 90, solid: true });
-  pair('torch', 440, 800, { r: 10, h: 90, solid: true });
-  pair('torch', 1160, 230, { r: 10, h: 90, solid: true });
-  pair('torch', 1160, 810, { r: 10, h: 90, solid: true });
-  pair('crystal', 200, 300, { r: 0 });
-  pair('crystal', 200, 740, { r: 0 });
-
-  // 地图边缘：上方森林、下方悬崖边的石笋、零散蘑菇
-  for (let x = -160; x < WORLD.w + 200; x += 110 + rnd() * 60) {
-    props.push({ type: 'tree', x, y: BOUNDS.y0 - 40 - rnd() * 50, s: 0.85 + rnd() * 0.5, seed: rnd(), r: 0 });
-  }
-  for (let x = -100; x < WORLD.w + 100; x += 90 + rnd() * 80) {
-    props.push({ type: 'stalag', x, y: BOUNDS.y1 + 30 + rnd() * 25, s: 0.7 + rnd() * 0.7, seed: rnd(), r: 0 });
-  }
-  for (let i = 0; i < 26; i++) {
-    const top = rnd() < 0.5;
-    const x = BOUNDS.x0 + 60 + rnd() * (BOUNDS.x1 - BOUNDS.x0 - 120);
-    const y = top ? BOUNDS.y0 + 5 + rnd() * 40 : BOUNDS.y1 - 10 - rnd() * 30;
-    props.push({ type: 'shroom', x, y, s: 0.6 + rnd() * 0.6, seed: rnd(), r: 0, hue: rnd() < 0.5 ? 'teal' : 'pink' });
-  }
-  // 蕨类植物：地图边缘与障碍物脚下
-  for (let i = 0; i < 46; i++) {
-    const top = rnd() < 0.5;
-    const x = BOUNDS.x0 + rnd() * (BOUNDS.x1 - BOUNDS.x0);
-    const y = top ? BOUNDS.y0 + rnd() * 50 : BOUNDS.y1 - rnd() * 40;
-    props.push({ type: 'fern', x, y, s: 0.8 + rnd() * 0.7, seed: rnd(), r: 0, hue: rnd() < 0.55 ? 'purple' : 'green' });
-  }
-  for (const o of props.filter((p) => p.type === 'pillar' || p.type === 'rock')) {
-    for (const dx of [-1, 1]) {
-      props.push({ type: 'fern', x: o.x + dx * (o.r + 8 + rnd() * 10), y: o.y + 6 + rnd() * 10, s: 0.6 + rnd() * 0.4, seed: rnd(), r: 0, hue: rnd() < 0.5 ? 'purple' : 'green' });
+  let k = 0;
+  for (let j = 0; j < H - 1; j++) {
+    for (let i = 0; i < W; i++) {
+      if (!solid(i, j) || solid(i, j + 1)) continue;
+      if ((k++ + (i * 7 + j * 3)) % 6 !== 0) continue;
+      props.push({ type: 'sconce', x: (i + 0.5) * TILE, y: (j + 1) * TILE + 2, h: 48, seed: rnd() });
     }
   }
-  for (let y = BOUNDS.y0 - 20; y < BOUNDS.y1 + 40; y += 70 + rnd() * 40) {
-    props.push({ type: 'tree', x: BOUNDS.x0 - 70 - rnd() * 40, y, s: 0.8 + rnd() * 0.4, seed: rnd(), r: 0 });
-    props.push({ type: 'tree', x: BOUNDS.x1 + 70 + rnd() * 40, y, s: 0.8 + rnd() * 0.4, seed: rnd(), r: 0 });
+  const floorSpot = (x0, y0, x1, y1, tries = 30) => {
+    for (let t = 0; t < tries; t++) {
+      const x = x0 + rnd() * (x1 - x0), y = y0 + rnd() * (y1 - y0);
+      const i = Math.floor(x / TILE), j = Math.floor(y / TILE);
+      if (!solid(i, j)) return { x, y };
+    }
+    return null;
+  };
+  // 野区与基地的装饰（沿墙脚摆放）
+  for (let j = 1; j < H - 1; j++) {
+    for (let i = 1; i < W - 1; i++) {
+      if (solid(i, j)) continue;
+      const nearWall = solid(i, j - 1) || solid(i - 1, j) || solid(i + 1, j);
+      if (!nearWall) continue;
+      const r = rnd();
+      const x = (i + 0.2 + rnd() * 0.6) * TILE, y = (j + 0.15 + rnd() * 0.3) * TILE;
+      if (r < 0.12) props.push({ type: 'fern', x, y, s: 0.7 + rnd() * 0.6, seed: rnd(), hue: rnd() < 0.5 ? 'purple' : 'green' });
+      else if (r < 0.18) props.push({ type: 'shroom', x, y, s: 0.6 + rnd() * 0.5, seed: rnd(), hue: rnd() < 0.5 ? 'teal' : 'pink' });
+      else if (r < 0.21) props.push({ type: 'bones', x, y, s: 0.8 + rnd() * 0.4, seed: rnd() });
+    }
+  }
+  for (const c of MAP.camps) {
+    if (c.side === -1) {
+      for (let n = 0; n < 4; n++) {
+        const p = floorSpot(c.x - 200, c.y - 140, c.x + 200, c.y + 140);
+        if (p) props.push({ type: 'crystal', x: p.x, y: p.y, seed: rnd() });
+      }
+    }
   }
   return props;
 }

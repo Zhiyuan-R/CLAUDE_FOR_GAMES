@@ -25,7 +25,8 @@ export class Unit {
     this.flash = 0;
     this.invuln = 0;
     this.height = 60;
-    this.status = { stun: 0, root: 0, slow: 0, slowAmt: 0, burn: 0, burnDps: 0, burnTick: 0, burnSrc: null };
+    this.status = { stun: 0, root: 0, slow: 0, slowAmt: 0, burn: 0, burnDps: 0, burnTick: 0, burnSrc: null, burnColor: null };
+    this.shield = 0;
   }
 
   get slowMul() { return this.status.slow > 0 ? 1 - this.status.slowAmt : 1; }
@@ -42,8 +43,8 @@ export class Unit {
       s.burnTick -= dt;
       if (s.burnTick <= 0) {
         s.burnTick = 0.5;
-        if (s.burnSrc) dealDamage(this.game, s.burnSrc, this, s.burnDps * 0.5, { dot: true });
-        if (Math.random() < 0.8) this.game.fx.burst(this.x, this.y, 30, '#ff8a2a', 3, { type: 'ember', speed: 40, up: 90, life: 0.7, size: 3 });
+        if (s.burnSrc) dealDamage(this.game, s.burnSrc, this, s.burnDps * 0.5, { dot: true, color: s.burnColor });
+        if (Math.random() < 0.8) this.game.fx.burst(this.x, this.y, 30, s.burnColor || '#ff8a2a', 3, { type: 'ember', speed: 40, up: 90, life: 0.7, size: 3 });
       }
     }
     // 击退速度指数衰减

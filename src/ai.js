@@ -1,110 +1,260 @@
-// 电脑对手：与玩家输出相同的指令结构（移动 / 普攻 / 蓄力 / 穿梭 / 技能 + 瞄准方向）
+// 电脑英雄：按位置（上 / 中 / 下 / 辅助 / 打野）行动，A* 寻路穿过地牢，
+// 会团战支援、打野怪、捡装备、骑坐骑赶路、残血回城。输出与键盘相同的指令结构
 import { blankInput } from './input.js';
 import { norm, rand, dist, chance } from './math.js';
-import { SPAWN, FOUNTAIN_R, LANE_Y } from './config.js';
+import { SPAWN, FOUNTAIN_R } from './config.js';
+import { MAP } from './map.js';
+import { findPath, los } from './nav.js';
 
 export const DIFFICULTY = {
   easy: { label: '简单', think: 0.32, dodge: 0.12, aggression: 0.55, skill: 0.5, attackRate: 0.55, lead: 0.3 },
-  normal: { label: '普通', think: 0.18, dodge: 0.4, aggression: 0.8, skill: 1, attackRate: 0.85, lead: 0.7 },
-  hard: { label: '困难', think: 0.1, dodge: 0.7, aggression: 1, skill: 1.6, attackRate: 1, lead: 0.95 },
+  normal: { label: '普通', think: 0.2, dodge: 0.4, aggression: 0.8, skill: 1, attackRate: 0.85, lead: 0.7 },
+  hard: { label: '困难', think: 0.12, dodge: 0.7, aggression: 1, skill: 1.6, attackRate: 1, lead: 0.95 },
 };
 
+// 沿兵线路径的推进进度（路径长度坐标）
+function progressOn(path, x, y) {
+  let best = Infinity, bestS = 0, acc = 0;
+  for (let i = 0; i < path.length - 1; i++) {
+    const a = path[i], b = path[i + 1];
+    const dx = b.x - a.x, dy = b.y - a.y, l = Math.hypot(dx, dy) || 1;
+    const t = Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / (l * l)));
+    const d = Math.hypot(x - (a.x + dx * t), y - (a.y + dy * t));
+    if (d < best) { best = d; bestS = acc + l * t; }
+    acc += l;
+  }
+  return { s: bestS, off: best };
+}
+function pointAt(path, s) {
+  let acc = 0;
+  for (let i = 0; i < path.length - 1; i++) {
+    const a = path[i], b = path[i + 1];
+    const l = Math.hypot(b.x - a.x, b.y - a.y);
+    if (acc + l >= s) { const t = (s - acc) / l; return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }; }
+    acc += l;
+  }
+  return { ...path[path.length - 1] };
+}
+
 export class AIController {
-  constructor(game, hero, difficulty = 'normal') {
+  constructor(game, hero, difficulty = 'normal', role = 'mid') {
     this.g = game;
     this.h = hero;
+    this.role = role;
     this.d = DIFFICULTY[difficulty] || DIFFICULTY.normal;
     this.out = blankInput();
-    this.thinkT = 0;
+    this.thinkT = Math.random() * 0.3;
+    this.mode = 'lane';
     this.target = null;
-    this.mode = 'push';
-    this.strafeDir = 1;
+    this.goal = null;
+    this.path = null;
+    this.pathGoal = null;
+    this.repathT = 0;
+    this.stuckT = 0;
+    this.lastPos = { x: hero.x, y: hero.y };
+    this.strafeDir = chance(0.5) ? 1 : -1;
     this.strafeT = 0;
     this.charging = false;
     this.chargeHold = 0;
     this.attackT = 0;
     this.dodged = new WeakSet();
+    this.camp = null;
+    this.lane = role === 'support' ? 'bot' : role === 'jungle' ? 'mid' : role;
   }
 
-  enemyHero() { return this.g.heroes.find((x) => x.team !== this.h.team); }
+  enemyHeroes() { return this.g.heroes.filter((x) => x.team !== this.h.team && x.alive && x.targetable); }
   enemyTowers() { return this.g.towers.filter((t) => t.alive && t.team !== this.h.team); }
 
-  // 敌方塔正在攻击我方小兵（或塔下有我方小兵）时，才算“有兵扛塔”
   towerTanked(t) {
     if (t.target && t.target.kind === 'minion') return true;
-    return this.g.minions.some((m) => m.alive && m.team === this.h.team && dist(m, t) < t.range - 20);
+    return this.g.minions.some((m) => m.alive && m.team === this.h.team && Math.abs(m.x - t.x) < t.range && dist(m, t) < t.range - 20);
   }
 
-  inTowerDanger(x, y) {
-    return this.enemyTowers().find((t) => Math.hypot(t.x - x, t.y - y) < t.range + 50 && !this.towerTanked(t)) || null;
+  towerDanger(x, y) {
+    for (const t of this.enemyTowers()) {
+      if (Math.hypot(t.x - x, t.y - y) < t.range + 50 && !(this.towerTanked(t) && t.target !== this.h)) return t;
+    }
+    return null;
+  }
+
+  visible(u, r) {
+    return u.alive && u.targetable && Math.hypot(u.x - this.h.x, u.y - this.h.y) < r && los(this.h.x, this.h.y, u.x, u.y);
+  }
+
+  laneFront() {
+    const g = this.g, h = this.h;
+    const path = MAP.lanePaths[h.team][this.lane];
+    let front = -1;
+    for (const m of g.minions) {
+      if (m.team !== h.team || m.lane !== this.lane) continue;
+      const p = progressOn(path, m.x, m.y);
+      if (p.off < 300) front = Math.max(front, p.s);
+    }
+    if (front < 0) {
+      // 没有己方兵线时，站在本路最前面的己方塔前
+      for (const t of g.towers) {
+        if (!t.alive || t.team !== h.team || t.lane !== this.lane) continue;
+        front = Math.max(front, progressOn(path, t.x, t.y).s + 150);
+      }
+      if (front < 0) front = 300;
+    }
+    const s = Math.max(0, front - (h.def.ranged ? 160 : 90));
+    const p = pointAt(path, s);
+    // 别站进无人扛塔的敌方塔范围
+    const danger = this.towerDanger(p.x, p.y);
+    if (danger) return pointAt(path, Math.max(0, progressOn(path, danger.x, danger.y).s - danger.range - 80));
+    return p;
+  }
+
+  chooseCamp() {
+    const h = this.h, g = this.g;
+    let best = null, bestS = Infinity;
+    for (const c of g.camps) {
+      if (!c.units.some((u) => u.alive)) continue;
+      if (c.side === -1) {
+        const helpers = g.heroes.filter((x) => x.alive && x.team === h.team && Math.hypot(x.x - c.x, x.y - c.y) < 900).length;
+        if (g.time < 360 || helpers < 2 || h.hp / h.maxHp < 0.85) continue;
+      }
+      const s = Math.hypot(c.x - h.x, c.y - h.y) + (c.side === 1 - h.team ? 600 : 0);
+      if (s < bestS) { bestS = s; best = c; }
+    }
+    return best;
   }
 
   decide() {
-    const h = this.h, e = this.enemyHero();
+    const h = this.h, g = this.g;
     const hpR = h.hp / h.maxHp;
     const home = SPAWN[h.team];
+    const atHome = Math.hypot(h.x - home.x, h.y - home.y) < FOUNTAIN_R * 0.8;
+    const foes = this.enemyHeroes().filter((e) => this.visible(e, 700));
+    const nearestFoe = foes.sort((a, b) => dist(h, a) - dist(h, b))[0];
 
-    if (this.mode === 'retreat') {
-      const atHome = Math.hypot(h.x - home.x, h.y - home.y) < FOUNTAIN_R * 0.7;
-      if (hpR > 0.92 || (!atHome && hpR > 0.65)) this.mode = 'push';
-      else { this.target = null; return; }
-    }
-    const enemyLow = e.alive && e.hp / e.maxHp < hpR * 0.7 && dist(h, e) < 300;
-    if (hpR < 0.28 && !enemyLow) {
-      this.mode = 'retreat';
+    // 残血：有敌人追就撤，没人就回城
+    if (atHome && hpR < 0.9) { this.mode = 'heal'; this.target = null; this.goal = null; return; }
+    if (hpR < 0.3 || (this.mode === 'recall' && !atHome)) {
+      const threat = nearestFoe && dist(h, nearestFoe) < 650;
+      this.mode = threat ? 'flee' : 'recall';
       this.target = null;
-      this.charging = false;
+      this.goal = { x: home.x, y: home.y };
       return;
     }
 
+    // 团战：自己或队友附近有敌方英雄
     let target = null;
-    if (e.alive && dist(h, e) < 780) {
-      const danger = this.inTowerDanger(e.x, e.y);
-      const killable = e.hp / e.maxHp < 0.22 * this.d.aggression && hpR > 0.5;
-      if (!danger || killable) target = e;
+    for (const e of foes) {
+      const danger = this.towerDanger(e.x, e.y);
+      const killable = e.hp / e.maxHp < 0.25 * this.d.aggression && hpR > 0.45;
+      if (danger && !killable) continue;
+      const allies = g.heroes.filter((a) => a.alive && a.team === h.team && dist(a, e) < 600).length;
+      const enemies = g.heroes.filter((a) => a.alive && a.team !== h.team && dist(a, e) < 600).length;
+      if (allies + 0.5 < enemies && hpR < 0.6) continue;
+      if (!target || dist(h, e) < dist(h, target)) target = e;
     }
     if (!target) {
-      let best = null, bd = 650;
-      for (const m of this.g.minions) {
-        if (!m.alive || m.team === h.team) continue;
-        const d = dist(h, m);
-        if (d < bd && !this.inTowerDanger(m.x, m.y)) { bd = d; best = m; }
-      }
-      target = best;
-    }
-    if (!target) {
-      for (const t of this.enemyTowers()) {
-        if (t.isInvulnerable()) continue;
-        const enemyAway = !e.alive || dist(e, t) > 700;
-        if (dist(h, t) < 950 && (this.towerTanked(t) || (enemyAway && hpR > 0.65))) { target = t; break; }
+      for (const a of g.heroes) {
+        if (a === h || !a.alive || a.team !== h.team || dist(a, h) > 1100) continue;
+        const e = this.enemyHeroes().find((x) => dist(x, a) < 450 && !this.towerDanger(x.x, x.y));
+        if (e && hpR > 0.5) { target = e; break; }
       }
     }
-    this.target = target;
+    if (target) { this.mode = 'fight'; this.target = target; this.goal = { x: target.x, y: target.y }; return; }
+
+    // 捡装备
+    if (!nearestFoe || dist(h, nearestFoe) > 600) {
+      const worst = h.items.length < 6 ? -1 : Math.min(...h.items.map((it) => it.r));
+      const l = g.loot.filter((x) => x.item.r > worst && !(x.denyT > 0 && x.deniedFor === h) && Math.hypot(x.x - h.x, x.y - h.y) < 520).sort((a, b) => Math.hypot(a.x - h.x, a.y - h.y) - Math.hypot(b.x - h.x, b.y - h.y))[0];
+      if (l) { this.mode = 'loot'; this.target = null; this.goal = { x: l.x, y: l.y }; return; }
+    }
+
+    // 宝箱就在附近就顺手打开
+    const chest = g.chests.find((c) => c.alive && this.visible(c, 420));
+    if (chest && !nearestFoe) { this.mode = 'farm'; this.target = chest; this.goal = { x: chest.x, y: chest.y }; return; }
+
+    if (this.role === 'jungle') {
+      if (!this.camp || !this.camp.units.some((u) => u.alive)) this.camp = this.chooseCamp();
+      if (this.camp) {
+        const alive = this.camp.units.filter((u) => u.alive);
+        const near = alive.sort((a, b) => dist(h, a) - dist(h, b))[0];
+        if (near && dist(h, near) < 520 && los(h.x, h.y, near.x, near.y)) { this.mode = 'farm'; this.target = near; this.goal = { x: near.x, y: near.y }; }
+        else { this.mode = 'travel'; this.target = null; this.goal = { x: this.camp.x, y: this.camp.y }; }
+        return;
+      }
+    }
+    // 被野怪追着打时还手
+    const angry = g.monsters.find((m) => m.target === h && this.visible(m, 400));
+    if (angry) { this.mode = 'farm'; this.target = angry; this.goal = { x: angry.x, y: angry.y }; return; }
+
+    if (this.role === 'support') {
+      const carry = g.heroes.find((a) => a !== h && a.alive && a.team === h.team && a.role === 'bot');
+      if (carry) {
+        const m = this.minionTarget();
+        if (m && dist(m, carry) < 450) { this.mode = 'farm'; this.target = m; this.goal = { x: m.x, y: m.y }; return; }
+        this.mode = 'travel';
+        this.target = null;
+        this.goal = { x: carry.x - (h.team === 0 ? 70 : -70), y: carry.y + 40 };
+        return;
+      }
+    }
+
+    // 兵线：打小兵 / 推塔 / 站到兵线前沿
+    const m = this.minionTarget();
+    if (m) { this.mode = 'farm'; this.target = m; this.goal = { x: m.x, y: m.y }; return; }
+    for (const t of this.enemyTowers()) {
+      if (t.isInvulnerable() || dist(h, t) > 700) continue;
+      if (this.towerTanked(t) || (!nearestFoe && hpR > 0.7 && g.time > 300)) { this.mode = 'farm'; this.target = t; this.goal = { x: t.x, y: t.y }; return; }
+    }
+    this.mode = 'travel';
+    this.target = null;
+    this.goal = this.laneFront();
   }
 
-  laneGoal() {
-    const h = this.h, dir = h.team === 0 ? 1 : -1;
-    const allies = this.g.minions.filter((m) => m.alive && m.team === h.team);
-    let x;
-    if (allies.length) {
-      x = dir > 0 ? Math.max(...allies.map((m) => m.x)) - 90 : Math.min(...allies.map((m) => m.x)) + 90;
-    } else {
-      const own = this.g.towers.filter((t) => t.alive && t.team === h.team);
-      const front = own.sort((a, b) => (b.x - a.x) * dir)[0];
-      x = front ? front.x + dir * 160 : SPAWN[h.team].x;
+  minionTarget() {
+    const h = this.h;
+    let best = null, bd = 520;
+    for (const m of this.g.minions) {
+      if (m.team === h.team) continue;
+      const d = dist(h, m);
+      if (d < bd && !this.towerDanger(m.x, m.y) && los(h.x, h.y, m.x, m.y)) { bd = d; best = m; }
     }
-    for (const t of this.enemyTowers()) {
-      if (Math.abs(t.x - x) < t.range + 60 && !this.towerTanked(t)) x = t.x - dir * (t.range + 70);
+    return best;
+  }
+
+  followPath(o, dt) {
+    const h = this.h;
+    const goal = this.goal;
+    if (!goal) return 0;
+    this.repathT -= dt;
+    if (!this.path || this.repathT <= 0 || !this.pathGoal || Math.hypot(goal.x - this.pathGoal.x, goal.y - this.pathGoal.y) > 140) {
+      this.path = findPath(h.x, h.y, goal.x, goal.y, h.radius);
+      this.pathGoal = { ...goal };
+      this.repathT = 1.2;
     }
-    return { x, y: LANE_Y + (h.team === 0 ? -50 : 50) };
+    if (!this.path.length) this.path = [{ x: goal.x, y: goal.y }];
+    while (this.path.length > 1 && Math.hypot(this.path[0].x - h.x, this.path[0].y - h.y) < 40) this.path.shift();
+    const next = this.path[0];
+    const dd = Math.hypot(next.x - h.x, next.y - h.y);
+    if (dd < 30 && this.path.length === 1) return 0;
+    const n = norm(next.x - h.x, next.y - h.y);
+    o.mx = n.x; o.my = n.y;
+    // 卡住了就重新寻路
+    this.stuckT += dt;
+    if (this.stuckT > 0.8) {
+      if (Math.hypot(h.x - this.lastPos.x, h.y - this.lastPos.y) < 20 && h.state === 'idle') { this.repathT = 0; o.mx += rand(-0.6, 0.6); o.my += rand(-0.6, 0.6); }
+      this.lastPos = { x: h.x, y: h.y };
+      this.stuckT = 0;
+    }
+    let remain = dd;
+    for (let i = 0; i < this.path.length - 1; i++) remain += Math.hypot(this.path[i + 1].x - this.path[i].x, this.path[i + 1].y - this.path[i].y);
+    return remain;
   }
 
   tryDodge(o) {
     const h = this.h;
     if (h.dashCd > 0) return;
     for (const p of this.g.projectiles) {
-      if (!p.alive || p.team === h.team || this.dodged.has(p)) continue;
+      if (!p.alive || p.team === h.team || p.homing || this.dodged.has(p)) continue;
       const rx = h.x - p.x, ry = h.y - p.y;
+      if (Math.abs(rx) > 400 || Math.abs(ry) > 400) continue;
       const sp = Math.hypot(p.vx, p.vy) || 1;
       const along = (rx * p.vx + ry * p.vy) / sp;
       if (along <= 0 || along / sp > 0.35) continue;
@@ -122,13 +272,22 @@ export class AIController {
   }
 
   useSkills(o, t, d) {
-    const h = this.h;
-    const skills = h.def.skills;
+    const h = this.h, g = this.g;
+    const hpR = h.hp / h.maxHp;
     for (let i = 0; i < 2; i++) {
       if (h.skillCd[i] > 0) continue;
-      const s = skills[i];
-      if (d > s.aiRange + t.radius) continue;
-      if (!chance(this.lastDt * 2.2 * this.d.skill)) continue;
+      const s = h.def.skills[i];
+      let want = false;
+      if (s.ai === 'heal') {
+        want = hpR < 0.6 || g.heroes.some((a) => a.alive && a.team === h.team && a.hp / a.maxHp < 0.5 && dist(a, h) < 300);
+      } else if (s.ai === 'escape') {
+        want = (hpR < 0.45 && d < 260) || (t.kind === 'hero' && d < s.aiRange + t.radius && chance(0.3));
+      } else if (s.ai === 'self') {
+        want = d < s.aiRange + t.radius + 40 && (t.kind === 'hero' || t.kind === 'monster' || chance(0.2));
+      } else {
+        want = d < s.aiRange + t.radius && (t.kind === 'hero' || (t.kind === 'monster' && t.m.tier >= 1) || chance(0.08));
+      }
+      if (!want || !chance(this.lastDt * 2.4 * this.d.skill)) continue;
       if (i === 0) o.s1 = true; else o.s2 = true;
       return true;
     }
@@ -138,45 +297,61 @@ export class AIController {
   read(dt) {
     this.lastDt = dt;
     const o = this.out, h = this.h, g = this.g;
-    o.attack = o.dash = o.s1 = o.s2 = false;
+    o.attack = o.dash = o.s1 = o.s2 = o.mount = o.recall = false;
     o.mx = o.my = 0;
     o.aim = null;
-    if (!h.alive) { o.charge = false; this.charging = false; return o; }
+    if (!h.alive) { o.charge = false; this.charging = false; this.path = null; return o; }
 
     this.thinkT -= dt;
     if (this.thinkT <= 0) {
       this.thinkT = this.d.think * rand(0.7, 1.3);
       this.decide();
     }
-
-    if (this.mode === 'retreat') {
+    // 引导中（上坐骑 / 回城）保持不动
+    if (h.state === 'mounting' || h.state === 'recall') {
       o.charge = false;
-      const home = SPAWN[h.team];
-      const n = norm(home.x - h.x, home.y - h.y);
-      if (Math.hypot(home.x - h.x, home.y - h.y) > 40) { o.mx = n.x; o.my = n.y; }
-      const e = this.enemyHero();
-      if (e.alive && dist(h, e) < 220 && h.dashCd <= 0 && chance(dt * 4)) o.dash = true;
+      if (h.state === 'recall' && this.enemyHeroes().some((e) => dist(e, h) < 500)) o.mx = 0.6;
+      return o;
+    }
+    const hpR = h.hp / h.maxHp;
+
+    if (this.mode === 'heal') { o.charge = false; return o; }
+    if (this.mode === 'recall') {
+      o.charge = false;
+      if (h.state === 'idle' && !h.mounted) o.recall = true;
+      else if (h.mounted) o.mount = true;
+      return o;
+    }
+    if (this.mode === 'flee') {
+      o.charge = false;
+      const remain = this.followPath(o, dt);
+      const e = this.enemyHeroes().find((x) => dist(x, h) < 260);
+      if (e && h.dashCd <= 0 && chance(dt * 4)) o.dash = true;
+      if (e) this.useSkills(o, e, dist(e, h));
+      if (!e && remain > 900 && !h.mounted && h.mountCd <= 0 && h.state === 'idle') { o.mx = o.my = 0; o.mount = true; }
       return o;
     }
 
-    const t = this.target && this.target.alive ? this.target : null;
-    if (!t) {
+    const t = this.target && this.target.alive && this.target.targetable ? this.target : null;
+    if (t) this.goal = { x: t.x, y: t.y };
+    const dx = t ? t.x - h.x : 0, dy = t ? t.y - h.y : 0;
+    const d = Math.hypot(dx, dy);
+
+    // 目标不在视线内或太远：寻路接近
+    if (!t || d > 650 || !los(h.x, h.y, t.x, t.y, 8)) {
       o.charge = false;
       this.charging = false;
-      const goal = this.laneGoal();
-      const dx = goal.x - h.x, dy = goal.y - h.y;
-      if (Math.hypot(dx, dy) > 40) { const n = norm(dx, dy); o.mx = n.x; o.my = n.y; }
+      const remain = this.followPath(o, dt);
+      const foeNear = this.enemyHeroes().some((e) => dist(e, h) < 900);
+      if (remain > 1000 && !foeNear && !h.mounted && h.mountCd <= 0 && h.state === 'idle' && g.time > 2) { o.mx = o.my = 0; o.mount = true; }
       this.tryDodge(o);
       return o;
     }
 
-    const dx = t.x - h.x, dy = t.y - h.y;
-    const d = Math.hypot(dx, dy);
     const n = norm(dx, dy);
     const ranged = h.def.ranged;
     const isStructure = t.kind === 'tower' || t.kind === 'core';
 
-    // 远程英雄预判目标移动
     let ax = t.x, ay = t.y;
     if (ranged && t.vx !== undefined) {
       const tt = d / (h.def.projSpeed || 800);
@@ -188,7 +363,7 @@ export class AIController {
     let want;
     if (t.kind === 'hero') want = h.def.aiRange;
     else if (isStructure) want = t.radius + (ranged ? 300 : 40);
-    else want = ranged ? 280 : 45;
+    else want = ranged ? Math.min(300, h.def.aiRange) : 40 + t.radius;
 
     let mx = 0, my = 0;
     if (d > want + 25) { mx = n.x; my = n.y; }
@@ -199,12 +374,10 @@ export class AIController {
       const k = ranged ? 0.8 : 0.45;
       mx += -n.y * this.strafeDir * k;
       my += n.x * this.strafeDir * k;
-      // 对手蓄力时拉开距离
       if (t.state === 'charging' && t.chargeT > 0.3 && d < 220 && chance(this.d.dodge + 0.2)) { mx = -n.x; my = -n.y; }
     }
-    // 避免无兵时进入敌方塔范围
     if (!isStructure) {
-      const danger = this.inTowerDanger(h.x + mx * 40, h.y + my * 40);
+      const danger = this.towerDanger(h.x + mx * 40, h.y + my * 40);
       if (danger && !(t.kind === 'hero' && t.hp / t.maxHp < 0.2)) {
         const away = norm(h.x - danger.x, h.y - danger.y);
         mx = away.x * 1.5 + mx * 0.3;
@@ -229,9 +402,9 @@ export class AIController {
       ? t.radius + (ranged ? h.def.aiAttackRange * 0.85 : 70)
       : h.def.aiAttackRange + t.radius - 10;
 
+    if (t.kind === 'hero' || t.kind === 'monster') if (this.useSkills(o, t, d)) return o;
     if (d <= reach) {
-      if (t.kind === 'hero' && this.useSkills(o, t, d)) return o;
-      if (h.state === 'idle' && h.chargeCd <= 0 && t.kind !== 'minion' && chance(dt * 0.45 * this.d.aggression)) {
+      if (h.state === 'idle' && h.chargeCd <= 0 && (t.kind === 'hero' || t.kind === 'monster' || isStructure) && chance(dt * 0.45 * this.d.aggression)) {
         this.charging = true;
         this.chargeHold = h.def.charged.maxTime * rand(0.6, 1.15);
         o.charge = true;
@@ -242,12 +415,10 @@ export class AIController {
         o.attack = true;
         this.attackT = rand(0.05, 0.25) / this.d.attackRate;
       }
-    } else if (!ranged && t.kind === 'hero' && d > 200 && d < 420 && h.dashCd <= 0 && chance(dt * 1.2 * this.d.aggression)) {
+    } else if (!ranged && t.kind === 'hero' && d > 200 && d < 420 && h.dashCd <= 0 && hpR > 0.4 && chance(dt * 1.2 * this.d.aggression)) {
       o.dash = true;
       o.mx = n.x;
       o.my = n.y;
-    } else if (t.kind === 'hero' && h.def.skills[0].aiRange > 250 && d <= h.def.skills[0].aiRange + t.radius) {
-      this.useSkills(o, t, d);
     }
     return o;
   }

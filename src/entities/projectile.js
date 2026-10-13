@@ -1,6 +1,7 @@
 // 飞行道具：法球、箭矢、防御塔弹体
 import { dealDamage, enemiesOf } from '../combat.js';
-import { BOUNDS } from '../config.js';
+import { WORLD } from '../config.js';
+import { wallAt } from '../map.js';
 
 export class Projectile {
   constructor(game, o) {
@@ -46,6 +47,8 @@ export class Projectile {
       this.vy = (dy / d) * this.speed;
       this.z += (Math.max(30, (t.height || 50) * 0.5) - this.z) * Math.min(1, dt * 5);
     }
+    this.steer?.(this, dt);
+    if (!this.alive) return;
     this.trail.push({ x: this.x, y: this.y, z: this.z });
     if (this.trail.length > 8) this.trail.shift();
     this.x += this.vx * dt;
@@ -53,11 +56,16 @@ export class Projectile {
     this.life -= dt;
     if (this.life <= 0) { this.expire(); return; }
 
-    if (this.x < BOUNDS.x0 - 120 || this.x > BOUNDS.x1 + 120 || this.y < BOUNDS.y0 - 120 || this.y > BOUNDS.y1 + 120) { this.expire(); return; }
+    if (this.x < 0 || this.x > WORLD.w || this.y < 0 || this.y > WORLD.h) { this.expire(); return; }
 
     if (!this.homing) {
-      for (const o of g.obstacles) {
-        if (o.h > this.z && Math.hypot(o.x - this.x, o.y - this.y) < o.r + this.radius * 0.5) {
+      if (wallAt(this.x, this.y)) {
+        g.fx.burst(this.x - this.vx * 0.02, this.y - this.vy * 0.02, this.z, this.color, 6, { speed: 150, life: 0.3 });
+        this.expire();
+        return;
+      }
+      for (const o of g.dynWalls) {
+        if (Math.hypot(o.x - this.x, o.y - this.y) < o.r + this.radius * 0.5) {
           g.fx.burst(this.x, this.y, this.z, this.color, 6, { speed: 150, life: 0.3 });
           this.expire();
           return;
@@ -70,9 +78,9 @@ export class Projectile {
       if (this.hit.has(u.id)) continue;
       if (Math.hypot(u.x - this.x, u.y - this.y) > u.radius + this.radius) continue;
       this.hit.add(u.id);
-      const ok = dealDamage(g, this.owner, u, this.dmg, { from: { x: this.x - this.vx, y: this.y - this.vy }, ...this.opts });
+      const ok = this.dmg > 0 ? dealDamage(g, this.owner, u, this.dmg, { from: { x: this.x - this.vx, y: this.y - this.vy }, ...this.opts }) : true;
       this.onHit?.(this, u, ok);
-      if (!this.pierce || this.homing) { this.alive = false; return; }
+      if (!this.pierce || this.homing) { this.alive = false; this.onExpire = null; return; }
     }
   }
 }

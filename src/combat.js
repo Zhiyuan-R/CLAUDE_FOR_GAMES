@@ -6,37 +6,67 @@ export function enemiesOf(game, team) {
   return game.units.filter((u) => u.alive && u.targetable && u.team !== team);
 }
 
-// opts: kb 击退力度, from {x,y} 击退源点, stun/root 秒数, slow {amt,t}, burn {dps,t},
-//       hitstop 卡肉秒数, shake 屏幕震动, dot 是否为持续伤害, silent 不播命中音
+// opts: kb 击退力度, from {x,y} 击退源点, stun/root 秒数, slow {amt,t}, burn {dps,t,color},
+//       hitstop 卡肉秒数, shake 屏幕震动, dot 是否为持续伤害, silent 不播命中音, raw 不受攻击方加成
 export function dealDamage(game, src, target, amount, opts = {}) {
   if (!target.alive || !target.targetable || target.team === src.team) return false;
   if (target.invuln > 0) {
-    if (!opts.dot) game.fx.text(target.x, target.y, 70, '闪避', '#9fe8ff', 14);
+    if (!opts.dot && target.kind === 'hero') game.fx.text(target.x, target.y, 70, '闪避', '#9fe8ff', 14);
     return false;
   }
   if (target.isInvulnerable?.()) {
-    if (!opts.dot && game.time - (target._immuneMsgT || 0) > 0.6) {
+    if (!opts.dot && game.time - (target._immuneMsgT || 0) > 0.6 && (src === game.player || src.owner === game.player)) {
       target._immuneMsgT = game.time;
-      game.fx.text(target.x, target.y, 150, '先摧毁外塔', '#c9c3e0', 15);
+      game.fx.text(target.x, target.y, 150, target.kind === 'core' ? '先摧毁一座内塔' : '先摧毁外塔', '#c9c3e0', 15);
     }
     return false;
   }
+  const owner = src.owner || src;
 
-  amount = Math.round(amount);
+  // 攻击方加成、伏击加成、受击方减伤
+  if (!opts.raw && owner.attrs) amount *= owner.attrs.power;
+  if (!opts.dot && owner.buffs?.ambush > 0) { amount *= 1.8; owner.buffs.ambush = 0; }
+  if (target.attrs) amount *= 1 - target.attrs.armor;
+  if (target.kind === 'tower' || target.kind === 'core') {
+    if (owner.kind === 'hero') amount *= 0.8;
+  }
+  amount = Math.max(1, Math.round(amount));
+
+  if (target.shield > 0) {
+    const absorbed = Math.min(target.shield, amount);
+    target.shield -= absorbed;
+    amount -= absorbed;
+    if (amount <= 0) {
+      if (!opts.dot) game.fx.text(target.x, target.y, 80, '格挡', '#ffe58a', 13);
+      return true;
+    }
+  }
+
   target.hp -= amount;
   if (!opts.dot && !opts.silent) target.flash = 0.1;
-  const owner = src.owner || src;
   target.lastHitBy = owner;
   target.lastHitT = game.time;
   if (owner.stats) owner.stats.dmg += amount;
+  if (owner.attrs?.lifesteal && owner.alive) owner.hp = Math.min(owner.maxHp, owner.hp + amount * owner.attrs.lifesteal);
 
-  // 伤害数字颜色：玩家受伤红色、玩家造成伤害金色、其余灰白
-  let color = '#e8e4f4', size = 14;
-  if (target === game.player) { color = '#ff5a5a'; size = 18; }
-  else if (owner === game.player) { color = amount >= 100 ? '#ffd24a' : '#fff2b0'; size = amount >= 100 ? 24 : 17; }
-  if (opts.dot) { color = opts.color || '#ff9a40'; size = 13; }
-  if (target.kind === 'hero' || owner === game.player || target === game.player) {
-    game.fx.damage(target, amount, color, size);
+  if (target.kind === 'hero') {
+    if (!opts.dot) {
+      target.dismount?.();
+      if (target.state === 'mounting' || target.state === 'recall') target.state = 'idle';
+    }
+    if (owner.kind === 'hero') target.recentAttackers.set(owner.id, { hero: owner, t: game.time });
+    target.lastDmgT = game.time;
+  }
+  target.onHurt?.(owner);
+
+  // 伤害数字：只显示和玩家相关的、或英雄受到的伤害
+  const near = game.player && Math.hypot(target.x - game.player.x, target.y - game.player.y) < 900;
+  if (near) {
+    let color = '#e8e4f4', size = 13;
+    if (target === game.player) { color = '#ff5a5a'; size = 18; }
+    else if (owner === game.player) { color = amount >= 100 ? '#ffd24a' : '#fff2b0'; size = amount >= 100 ? 24 : 17; }
+    if (opts.dot) { color = opts.color || '#ff9a40'; size = 13; }
+    if (target.kind === 'hero' || owner === game.player || target === game.player) game.fx.damage(target, amount, color, size);
   }
 
   if (opts.kb && target.mass < 99) {
@@ -47,25 +77,29 @@ export function dealDamage(game, src, target, amount, opts = {}) {
     target.ky += (dir.y * opts.kb) / target.mass;
   }
   const st = target.status;
-  if (st) {
-    if (opts.stun) { st.stun = Math.max(st.stun, opts.stun); game.fx.text(target.x, target.y, 95, '眩晕', '#ffe066', 15); }
-    if (opts.root) { st.root = Math.max(st.root, opts.root); game.fx.text(target.x, target.y, 95, '定身', '#8fe3ff', 15); }
+  if (st && target.mass < 99) {
+    const cc = target.kind === 'monster' && target.boss ? 0.3 : 1;
+    if (opts.stun) { st.stun = Math.max(st.stun, opts.stun * cc); if (near) game.fx.text(target.x, target.y, 95, '眩晕', '#ffe066', 14); }
+    if (opts.root) { st.root = Math.max(st.root, opts.root * cc); if (near) game.fx.text(target.x, target.y, 95, '定身', '#8fe3ff', 14); }
     if (opts.slow) {
       st.slowAmt = Math.max(st.slow > 0 ? st.slowAmt : 0, opts.slow.amt);
       st.slow = Math.max(st.slow, opts.slow.t);
     }
-    if (opts.burn) {
-      st.burnDps = Math.max(st.burn > 0 ? st.burnDps : 0, opts.burn.dps);
-      st.burn = Math.max(st.burn, opts.burn.t);
-      st.burnSrc = owner;
-    }
   }
-  if (opts.hitstop) game.hitstop(opts.hitstop);
-  if (opts.shake) game.shake(opts.shake);
-  if (!opts.dot && !opts.silent) sfx.hit();
-  if (!opts.dot) {
-    const big = amount >= 90;
-    game.fx.impact(target.x, target.y, (target.height || 50) * 0.55, big ? '#ffd27a' : '#ffffff', big ? 1.4 : target.kind === 'minion' ? 0.6 : 0.9);
+  if (st && opts.burn) {
+    st.burnDps = Math.max(st.burn > 0 ? st.burnDps : 0, opts.burn.dps);
+    st.burn = Math.max(st.burn, opts.burn.t);
+    st.burnSrc = owner;
+    st.burnColor = opts.burn.color || null;
+  }
+  if (near) {
+    if (opts.hitstop && (owner === game.player || target === game.player)) game.hitstop(opts.hitstop);
+    if (opts.shake) game.shake(opts.shake * (owner === game.player || target === game.player ? 1 : 0.4));
+    if (!opts.dot && !opts.silent) sfx.hit();
+    if (!opts.dot) {
+      const big = amount >= 90;
+      game.fx.impact(target.x, target.y, (target.height || 50) * 0.55, big ? '#ffd27a' : '#ffffff', big ? 1.4 : target.kind === 'minion' ? 0.6 : 0.9);
+    }
   }
 
   // 防御塔仇恨：在敌方塔下攻击其英雄会被塔优先锁定

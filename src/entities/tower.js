@@ -5,13 +5,17 @@ import { sfx } from '../audio.js';
 import { TEAM_COLORS } from '../config.js';
 
 export class Tower extends Unit {
-  constructor(game, { x, y, team, kind, guard = null }) {
+  // guards：守护本塔的塔。mode 为 any 时任一守护塔存活即无敌，all 时全部守护塔都存活才无敌
+  constructor(game, { x, y, team, kind, lane, tier, guards = [], mode = 'any' }) {
     const core = kind === 'core';
-    super(game, { x, y, team, radius: core ? 54 : 40, maxHp: core ? 2600 : 2000, kind });
+    super(game, { x, y, team, radius: core ? 54 : 40, maxHp: core ? 3000 : tier === 'inner' ? 2300 : 2000, kind });
+    this.lane = lane;
+    this.tier = tier;
+    this.guards = guards;
+    this.mode = mode;
     this.range = core ? 430 : 400;
     this.height = core ? 175 : 150;
     this.mass = 999;
-    this.guard = guard;
     this.atkCd = 1;
     this.target = null;
     this.streak = 0;
@@ -19,10 +23,13 @@ export class Tower extends Unit {
     this.aggroT = 0;
   }
 
-  isInvulnerable() { return !!(this.guard && this.guard.alive); }
+  isInvulnerable() {
+    if (!this.guards.length) return false;
+    return this.mode === 'all' ? this.guards.every((t) => t.alive) : this.guards.some((t) => t.alive);
+  }
 
   canHit(u) {
-    return u.alive && u.targetable && u.team !== this.team && (u.kind === 'hero' || u.kind === 'minion') &&
+    return u.alive && u.targetable && u.team !== this.team && u.team !== 2 && (u.kind === 'hero' || u.kind === 'minion') &&
       Math.hypot(u.x - this.x, u.y - this.y) <= this.range + u.radius;
   }
 
@@ -39,7 +46,7 @@ export class Tower extends Unit {
       this.target = null;
       this.streak = 0;
       let best = null, bestD = Infinity;
-      for (const u of g.units) {
+      for (const u of g.near(this.x, this.y, this.range + 40)) {
         if (!this.canHit(u)) continue;
         // 优先攻击小兵
         const d = Math.hypot(u.x - this.x, u.y - this.y) + (u.kind === 'hero' ? 10000 : 0);
