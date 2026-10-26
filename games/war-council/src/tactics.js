@@ -26,7 +26,7 @@ export const COORD = /\(?\s*(\d{1,2})\s*,\s*(\d{1,2})\s*\)?/g;
 // Coordinates the commander mentioned recently to this general.
 export function orderPoints(game, u) {
   const pts = [];
-  const msgs = game.messages.filter((m) => m.from === 'player' && (m.to === 'all' || m.to === u.id)).slice(-3).reverse();
+  const msgs = game.messages.filter((m) => isOrderFor(m, u)).slice(-3).reverse();
   for (const m of msgs) for (const c of m.text.matchAll(COORD)) {
     const x = +c[1], y = +c[2];
     if (x < 24 && y < 16 && game.passable(x, y) && !pts.some((p) => p.x === x && p.y === y)) pts.push({ x, y });
@@ -46,7 +46,8 @@ export function actionOptions(game, u) {
   for (const e of game.visibleFoes(u.side).sort((a, b) => dist(u, a) - dist(u, b)))
     add(`attack_${e.id}`, `Attack ${e.id} ${e.name} (${KINDS[e.kind].label}, about ${Math.round(e.troops)} troops, ${dist(u, e)} tiles to the ${dirName(u, e)})`,
       { type: 'attack', target: e.id }, `Attack ${e.id}`);
-  const points = red ? [] : orderPoints(game, u);
+  // Red takes the commander's named positions only when a human commands it.
+  const points = red && !game.versus ? [] : orderPoints(game, u);
   const landmarkAt = (p) => LANDMARKS.find((l) => l.x === p.x && l.y === p.y);
   points.forEach((p, i) => {
     const l = landmarkAt(p);
@@ -67,8 +68,13 @@ export function actionOptions(game, u) {
   return opts;
 }
 
+// A commander's message to this unit's own side, addressed to everyone or to it.
+export function isOrderFor(m, u) {
+  return m.from === 'player' && (m.side ?? 'ally') === u.side && (m.to === 'all' || m.to === u.id);
+}
+
 export function newOrders(game, u) {
-  return game.messages.filter((m) => m.from === 'player' && m.seq > u.lastSeenMsg && (m.to === 'all' || m.to === u.id));
+  return game.messages.filter((m) => m.seq > u.lastSeenMsg && isOrderFor(m, u));
 }
 
 export const RETREAT_WORDS = /\b(retreat|fall back|withdraw|pull back)\b/i;
@@ -78,20 +84,19 @@ export const HOLD_WORDS = /\b(hold|stay|wait|defend|guard|stand fast|don't move)
 // Understands a handful of keywords so orders still do something offline.
 export function heuristicDecision(game, u) {
   const order = newOrders(game, u).at(-1)?.text ?? '';
-  const vis = game.visibleEnemies();
+  const vis = game.visibleFoes(u.side);
   const d = { thought: '(rule engine)', say: '', action: null };
 
   const coord = [...order.matchAll(COORD)][0];
-  const target = order.match(/\bE\s*([1-9])\b/i);
-  const alive = target && game.unit('E' + target[1])?.alive;
+  const target = namedFoe(game, u, order);
   if (RETREAT_WORDS.test(order)) d.action = { type: 'retreat' };
-  else if (alive) d.action = { type: 'attack', target: 'E' + target[1] };
+  else if (target) d.action = { type: 'attack', target: target.id };
   else if (coord) d.action = { type: 'move', x: +coord[1], y: +coord[2] };
   else if (HOLD_WORDS.test(order)) d.action = { type: 'hold' };
   else if (/\bbanner\b/i.test(order)) d.action = { type: 'move', ...BANNER };
   if (order) d.say = d.action
     ? `As you command: ${game.describeAction(game.sanitizeAction(d.action, u) ?? { type: 'hold' }, u)}.`
-    : 'I did not follow that, my lord. Give me a position or a target (e.g. E2 or (10,5)).';
+    : `I did not follow that, commander. Give me a position or a target (e.g. ${u.side === 'ally' ? 'E2' : 'Huo Lie'} or (10,5)).`;
   if (/\b(well done|great|brave|proud|trust|thank)/i.test(order)) d.feeling = { morale: 3, bond: 2 };
   if (/\b(useless|idiot|coward|fool|pathetic)/i.test(order)) d.feeling = { morale: -3, bond: -4 };
 
@@ -100,7 +105,22 @@ export function heuristicDecision(game, u) {
     const near = vis.filter((e) => dist(u, e) <= KINDS[u.kind].vision).sort((a, b) => dist(u, a) - dist(u, b))[0];
     if (u.troops < u.maxTroops * 0.35) d.action = { type: 'retreat' };
     else if (near && u.action.type === 'hold' && u.troops >= near.troops * 0.8) d.action = { type: 'attack', target: near.id };
-    else if (u.action.type === 'retreat' && u.x === CAMP.x && u.y === CAMP.y) d.action = { type: 'hold' };
+    else if (u.action.type === 'retreat' && u.x === home(u).x && u.y === home(u).y) d.action = { type: 'hold' };
   }
   return d;
+}
+
+const home = (u) => (u.side === 'ally' ? CAMP : u.post ?? BANNER);
+
+// The living enemy unit an order names: by E-number (E2), by name ("Su Li"),
+// or by a general's letter after an attack verb ("attack B").
+function namedFoe(game, u, text) {
+  const foes = game.units.filter((f) => f.alive && f.side !== u.side);
+  for (const f of foes) {
+    const byId = f.id.length > 1
+      ? new RegExp(`\\b${f.id[0]}\\s*${f.id.slice(1)}\\b`, 'i').test(text)
+      : new RegExp(`\\b(attack|hit|charge|engage|strike|target|kill)\\s+(general\\s+)?${f.id}\\b`, 'i').test(text);
+    if (byId || text.toLowerCase().includes(f.name.toLowerCase())) return f;
+  }
+  return null;
 }

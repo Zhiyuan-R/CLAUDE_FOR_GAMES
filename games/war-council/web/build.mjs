@@ -36,8 +36,7 @@ function wrap(file) {
 const shell = read('web/shell.html');
 const style = read('public/style.css');
 const index = read('public/index.html');
-const body = index.slice(index.indexOf('<body>') + 6, index.indexOf('<script')).trim()
-  .replace('<form id="order">', '<form id="order">\n          <p id="note" hidden></p>');
+const body = index.slice(index.indexOf('<body>') + 6, index.indexOf('<script')).trim();
 const script = MODULES.map(wrap).join('\n');
 
 const out = shell

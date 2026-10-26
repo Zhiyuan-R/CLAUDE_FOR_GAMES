@@ -67,6 +67,27 @@ line:   Words like that and I would ride through fire! Understood. March to (12,
 保证游戏能玩。界面上每条决策都有来源标签：`决策模型` / `规则后备` / `调用失败`，不会把规则引擎的决策冒充成模型的。
 `BRAIN_MODE=llm` 只用模型（失败时显示错误）；`BRAIN_MODE=heuristic` 只用规则。`LLM_IMAGES=0` 可以关掉图片输入做对比。
 
+## 1v1 对战（服务器版）
+
+服务器版现在有大厅：打开首页可以选择
+- **Play solo**：单人指挥蓝军，对抗由决策模型驱动的红军；
+- **Create as Blue / Create as Red**：创建 1v1 对战，把等待界面里的邀请链接（`/?match=CODE`）发给对手，对手自动执掌另一方；
+- **Join**：输入 5 位对局码加入。
+
+对战规则：
+- 一方指挥蓝军三将，另一方指挥红军五支部队（Banner Guard、Hill Archers、Raiders、Bridge Patrol、South Garrison），红军部队也有各自的人设、台词、士气和对指挥官的羁绊；
+- 双方都由 SubQ 决策模型驱动：你的命令、语气会影响自己部队的服从、士气和羁绊；
+- **各自只看到自己一方的战争迷雾和军议频道**，对方的命令、部署意图在战斗结束前完全保密，结束后可在 Enemy review 里复盘；
+- 胜负条件不变（蓝军攻旗或全歼红军；红军全歼蓝军、占领蓝军大营 3 回合或坚守到第 900 回合），结算界面按各自视角显示 Victory / Defeat；
+- 双方都在线时战斗才推进，任何一方断线会自动暂停；刷新页面会回到原来的座位（座位令牌存在浏览器 sessionStorage 里）；
+- 对战中途不能重开，战斗结束后可以 Rematch（Fight again）。
+
+要和别人对战，需要把服务器部署到对方能访问的地址（例如 Render、Fly.io 或自己的云主机，设置 `LLM_API_KEY` 环境变量），
+或者在同一局域网内用 `http://<你的 IP>:8787` 访问。两个人共用服务器上配置的 SubQ Key。
+
+接口：`POST /api/matches`（创建）、`POST /api/matches/:code/join`、`GET /api/matches/:code/stream?token=`（SSE，按座位视角过滤）、
+`POST /api/matches/:code/{order,pause,reset}`、`GET /api/matches/:code/view/:id.png?token=`（只能看自己部队的模型视角）。
+
 ## 网页版（点开即玩）
 
 在线地址：https://claude.ai/artifact/YJWVvNHmEpgaeN7MPkgUep （发布在 claude.ai，默认仅自己可见，可在页面的 Share 菜单里分享）。

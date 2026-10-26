@@ -29,35 +29,25 @@ const flashes = new Map(); // unit id -> time
 let effects = []; // floating texts
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const glyphOf = (u) => (u.name?.startsWith('Old ') ? u.name[4] : u.name?.[0] ?? u.id);
+// Blue generals show an initial (H, S, Q); Red units show their number.
+const glyphOf = (u) => (/^E\d$/.test(u.id ?? '') ? u.id.slice(1) : u.name?.startsWith('Old ') ? u.name[4] : u.name?.[0] ?? u.id);
 const DISPLAY = '"Cinzel", "Trajan Pro", Georgia, serif';
 const BODY = '"Spectral", Georgia, serif';
 
 // ---------- data ----------
-// The UI talks to the battle through a transport: the Node server over SSE by
-// default, or an in-page battle (the web edition sets window.WC_TRANSPORT).
-function serverTransport() {
-  const post = (path, body) => fetch(path, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined,
-  });
-  return {
-    connect(onInit, onState) {
-      const es = new EventSource('/api/stream');
-      es.addEventListener('init', (e) => onInit(JSON.parse(e.data)));
-      es.onmessage = (e) => onState(JSON.parse(e.data));
-    },
-    order: (to, text) => post('/api/order', { to, text }),
-    pause: () => post('/api/pause'),
-    reset: () => post('/api/reset'),
-    viewUrl: (id) => `/api/view/${id}.png`,
-  };
-}
-const transport = window.WC_TRANSPORT ?? serverTransport();
+// The UI talks to the battle through a transport set up before this script:
+// the server lobby (public/lobby.js) or the in-page battle of the web edition.
+const transport = window.WC_TRANSPORT;
+// The side this player commands ('ally' = Blue, 'enemy' = Red).
+const me = () => init?.side ?? 'ally';
+const SIDE_NAME = { ally: 'Blue', enemy: 'Red' };
 
 transport.connect((data) => {
   init = data;
   resize();
   renderRecipients();
+  if (data.objective) $('.objective').textContent = 'Objective: ' + data.objective;
+  if (data.side === 'enemy') $('#review-tab').textContent = 'Enemy review';
 }, (next) => {
   ingest(next);
   state = next;
@@ -316,7 +306,7 @@ function drawIntents(now) {
   const byId = Object.fromEntries(state.units.map((u) => [u.id, u]));
   for (const u of state.units) {
     if (!u.alive || u.routing || !u.action || u.action.type === 'unknown' || u.action.type === 'hold') continue;
-    if (u.side === 'enemy' && state.status === 'playing') continue;
+    if (u.side !== me() && state.status === 'playing') continue;
     let dest = null;
     if (u.action.type === 'move') dest = u.action;
     else if (u.action.type === 'attack' && byId[u.action.target]?.alive) dest = animPos(u.action.target, now);
@@ -493,7 +483,7 @@ canvas.addEventListener('click', (ev) => {
   if (!c) return;
   const u = state.units.find((u) => u.alive && u.x === c.x && u.y === c.y);
   const input = $('#text');
-  if (u && u.side === 'ally') { setRecipient(u.id); input.focus(); return; }
+  if (u && u.side === me()) { setRecipient(u.id); input.focus(); return; }
   input.value = (input.value ? input.value.trimEnd() + ' ' : '') + (u ? u.id : `(${c.x},${c.y})`);
   input.focus();
 });
@@ -584,20 +574,25 @@ function renderTop() {
   $('#pause').textContent = state.paused ? '▶' : '❚❚';
   const b = state.brain;
   const blue = b.usingLLM ? (b.lastError ? 'warn' : 'ok') : 'warn';
-  const chips = [
+  const chips = state.versus ? [
+    `<span class="chip side-${me()}"><i class="dot"></i>You command ${SIDE_NAME[me()]}</span>`,
+    `<span class="chip ${state.lobby?.opponent ? 'ok' : 'warn'}"><i class="dot"></i>Opponent ${state.lobby?.opponent ? 'connected' : 'away'}</span>`,
+  ] : [
     `<span class="chip ${blue}" title="${esc(b.lastError || b.baseUrl)}"><i class="dot"></i>Blue · ${b.usingLLM ? brainLabel() : 'Rule fallback'}</span>`,
     `<span class="chip ${b.enemies === 'model' ? blue : 'warn'}"><i class="dot"></i>Red · ${b.enemies === 'model' ? brainLabel() : 'Scripted AI'}</span>`,
   ];
+  if (state.versus && !b.usingLLM) chips.push('<span class="chip warn"><i class="dot"></i>Rule fallback</span>');
   if (b.usingLLM) chips.push(`<span class="chip" title="${b.llmCalls} calls, ${b.llmFailures} failed">${esc(b.model)}${b.images ? ' · vision' : ''}${b.latencyMs ? ` · ${b.latencyMs}ms` : ''}</span>`);
   const html = chips.join('');
   if ($('#brain').innerHTML !== html) $('#brain').innerHTML = html;
   const note = $('#note');
-  if (note) { note.textContent = b.note || ''; note.hidden = !b.note; }
+  if (note && b.note !== undefined) { note.textContent = b.note; note.hidden = !b.note; }
 }
 
 let generalsKey = '';
 function renderGenerals(force) {
-  const gens = state.units.filter((u) => u.side === 'ally');
+  const gens = state.units.filter((u) => u.side === me());
+  $('#generals').classList.toggle('many', gens.length > 3);
   const key = JSON.stringify([to, gens]);
   if (!force && key === generalsKey) return;
   generalsKey = key;
@@ -615,7 +610,7 @@ function renderGenerals(force) {
     const col = frac > 0.55 ? '#7fd39a' : frac > 0.28 ? '#e8b14a' : '#ec6a55';
     const top = u.top || [];
     return `
-    <div class="gen ${u.alive ? '' : 'dead'} ${to === u.id ? 'selected' : ''}" data-id="${u.id}">
+    <div class="gen ${u.side === 'enemy' ? 'red' : ''} ${u.alive ? '' : 'dead'} ${to === u.id ? 'selected' : ''}" data-id="${u.id}">
       <div class="medal ${u.thinking ? 'thinking' : ''}">${ring(frac, col)}<div class="face">${esc(glyphOf(u))}</div></div>
       <div class="gen-head">
         <span class="gen-name">${esc(u.name)}</span><span class="gen-title">${esc(u.title)} · ${KIND_LABEL[u.kind]}</span>
@@ -653,8 +648,8 @@ function renderChat() {
     if (m.from === 'system') return `<div class="msg system"><div class="text">${esc(m.text)}</div></div>`;
     const player = m.from === 'player';
     return `<div class="msg ${player ? 'player' : ''}">
-      <div class="avatar">${player ? '★' : esc(glyphOf({ name: m.name }))}</div>
-      <div class="bubble"><div class="meta"><b>${esc(m.name)}</b>${m.to !== 'all' ? `→ ${esc(nameOf(m.to))} ` : ''}· ${m.tick}
+      <div class="avatar ${/^E\d$/.test(m.from) ? 'red' : ''}">${player ? '★' : esc(glyphOf({ id: m.from, name: m.name }))}</div>
+      <div class="bubble"><div class="meta"><b class="${/^E\d$/.test(m.from) ? 'red' : ''}">${esc(m.name)}</b>${m.to !== 'all' ? `→ ${esc(nameOf(m.to))} ` : ''}· ${m.tick}
         ${m.source && m.source !== 'llm' ? `<span class="src">${srcLabel(m.source)}</span>` : ''}</div>
       <div class="text">${esc(m.text)}</div></div></div>`;
   }).join('');
@@ -676,8 +671,8 @@ function renderReview() {
   const over = state.status !== 'playing';
   $('#review-tab').hidden = !over;
   if (!over) return;
-  const reds = state.units.filter((u) => u.side === 'enemy');
-  $('#review').innerHTML = `<p class="rv t">The battle is over. Here is how the Red army was deployed and what it decided:</p>` + reds.map((u) => `
+  const reds = state.units.filter((u) => u.side !== me());
+  $('#review').innerHTML = `<p class="rv t">The battle is over. Here is how the ${me() === 'ally' ? 'Red' : 'Blue'} army was deployed and what it decided:</p>` + reds.map((u) => `
     <div class="rv"><b>${esc(u.id)} ${esc(u.name)}</b> (${KIND_LABEL[u.kind].toLowerCase()}) ${u.alive ? `${u.troops} troops left` : 'wiped out'} · ${u.brainSource ? srcLabel(u.brainSource) : 'Scripted'}<br />
     <span class="t">Last decision: </span>${esc(describe(u.action))}${u.thought ? `<br /><span class="t">${esc(u.thought)}</span>` : ''}</div>`).join('');
 }
@@ -687,7 +682,8 @@ function renderOverlay() {
   $('#overlay').hidden = !over;
   if (!over) return;
   const v = $('#verdict');
-  v.textContent = state.status === 'won' ? 'Victory' : 'Defeat';
-  v.className = 'verdict ' + state.status;
+  const won = state.winner ? state.winner === me() : state.status === 'won';
+  v.textContent = won ? 'Victory' : 'Defeat';
+  v.className = 'verdict ' + (won ? 'won' : 'lost');
   $('#verdict-text').textContent = state.result;
 }

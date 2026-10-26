@@ -335,3 +335,60 @@ canvas#map { display: block; width: 100%; height: auto; border-radius: 6px; curs
   .seglegend span:not(:first-child):not(.obey) { display: none; }
   .rcpt { padding: 1px 10px; }
 }
+
+/* Red commanders (versus) */
+.gen.red .medal .face, .avatar.red { background: radial-gradient(circle at 35% 30%, #ef8a74, var(--red-deep)); }
+.msg .bubble .meta b.red { color: #ef8a74; }
+.chip.side-ally .dot { background: var(--blue); }
+.chip.side-enemy .dot { background: var(--red); }
+
+/* Lobby and waiting room (server edition) */
+#lobby, #waiting {
+  position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 16px;
+  background: radial-gradient(circle at 50% 30%, rgba(38, 32, 23, .94), rgba(12, 10, 7, .97));
+}
+#lobby[hidden], #waiting[hidden] { display: none; }
+.lobby-card {
+  width: min(620px, 100%); max-height: 100%; overflow: auto; padding: 26px 26px 22px; border-radius: 14px;
+  background: linear-gradient(180deg, var(--panel-2), var(--panel)); border: 1px solid var(--line);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .6); display: grid; gap: 14px;
+}
+.lobby-card h2 { margin: 0; font: 700 30px/1.1 var(--display); letter-spacing: 2px; text-wrap: balance; }
+.lobby-card .lede { margin: 0; color: var(--ink-2); font-size: 15px; }
+.lobby-card .fine { margin: 0; font-size: 12px; color: var(--muted); }
+.lobby-options { display: grid; gap: 10px; }
+.lobby-options section { display: grid; gap: 6px; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--line-soft); background: rgba(0, 0, 0, .15); }
+.lobby-options h3 { margin: 0; font: 600 15px var(--display); letter-spacing: 1px; color: var(--ink); }
+.lobby-options p { margin: 0; color: var(--muted); font-size: 13px; }
+.lobby-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.lobby-row input {
+  flex: 1; min-width: 0; padding: 8px 12px; border-radius: 8px; background: #15110c; border: 1px solid var(--line); outline: none;
+  font-variant-numeric: tabular-nums; letter-spacing: 1px;
+}
+.lobby-row input:focus { border-color: var(--gold); }
+.lobby-btn {
+  padding: 8px 18px; border-radius: 999px; border: 1px solid var(--gold); background: var(--gold-soft); color: var(--gold);
+  font: 600 13px var(--display); letter-spacing: 1px;
+}
+.lobby-btn.primary { background: linear-gradient(180deg, #e2b866, #b98a35); color: #1d150a; border-color: transparent; }
+.lobby-btn:hover, .lobby-btn:focus-visible { filter: brightness(1.08); outline: 2px solid var(--gold); outline-offset: 2px; }
+.lobby-btn:disabled { opacity: .5; cursor: default; }
+.lobby-error { margin: 0; color: #f1a596; font-size: 13px; }
+#note { margin: 0; font-size: 12px; color: var(--amber); }
+
+/* Five Red commanders need less room per card, and the card list scrolls on
+   its own so the council chat always keeps its space. */
+.generals.many { gap: 6px; }
+.generals.many .gen { padding: 6px 10px; gap: 2px 10px; grid-template-columns: 36px 1fr; }
+.generals.many .medal { width: 36px; height: 36px; grid-row: span 2; }
+.generals.many .medal .face { inset: 4px; font-size: 15px; }
+.generals.many .gen-name { font-size: 13px; }
+.generals.many .stat { font-size: 10px; gap: 1px; }
+.generals.many .doing { font-size: 11px; grid-column: 1 / -1; }
+.generals.many .mind { padding-top: 3px; gap: 2px; }
+.generals.many .seg { height: 3px; }
+.generals.many .seglegend span:not(:first-child):not(.obey) { display: none; }
+@media (min-width: 900px) {
+  .generals { flex: 0 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+  .comms { flex: 1 0 330px; }
+}

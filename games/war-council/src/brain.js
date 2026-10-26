@@ -59,7 +59,8 @@ function buildEnemyRequest(game, u, cfg) {
 }
 
 export function buildRequest(game, u, cfg) {
-  if (u.side === 'enemy') return buildEnemyRequest(game, u, cfg);
+  // Red follows its own script-like duty unless a human commands it (versus).
+  if (u.side === 'enemy' && !game.versus) return buildEnemyRequest(game, u, cfg);
   const options = actionOptions(game, u);
   const fresh = newOrders(game, u);
   const name = u.name;
@@ -94,7 +95,7 @@ export function buildRequest(game, u, cfg) {
   }
   const body = {
     model: cfg.model,
-    state: `Persona of the general ${name} ("you" below means ${name}):\n${u.persona}\n\n` +
+    state: `Persona of ${u.side === 'enemy' ? `the commander of Red unit ${u.id}` : 'the general'} ${name} ("you" below means ${name}):\n${u.persona}\n\n` +
       `The attached image is a top-down view of the battlefield. ${MAP_LEGEND}\n\n` +
       game.perceive(u),
     questions,
@@ -199,7 +200,12 @@ export class Council {
     this.prev = new Map();
     this.why = new Map();
     this.generation = 0;
-    game.scriptedEnemies = !this.drivesEnemies;
+    game.scriptedEnemies = !(game.versus || this.drivesEnemies);
+  }
+
+  // Red takes orders from a human in versus, and is never scripted then.
+  get commandsRed() {
+    return this.game.versus || this.drivesEnemies;
   }
 
   get useLLM() {
@@ -220,7 +226,7 @@ export class Council {
   // Signals that warrant an immediate re-think.
   triggered(u) {
     const g = this.game;
-    const hasNew = u.side === 'ally' && g.messages.some((m) => m.seq > u.lastSeenMsg && m.from === 'player' && (m.to === 'all' || m.to === u.id));
+    const hasNew = newOrders(g, u).length > 0;
     const p = this.prev.get(u.id) || {};
     const visible = g.visibleFoes(u.side).map((e) => e.id).sort();
     const cur = { visible: visible.join(','), troopsBand: Math.floor(u.troops / (u.maxTroops * 0.2)), routing: u.routing };
@@ -242,7 +248,7 @@ export class Council {
   update() {
     const g = this.game;
     if (g.status !== 'playing') return;
-    const units = this.drivesEnemies ? g.units.filter((u) => u.alive) : g.allies();
+    const units = this.commandsRed ? g.units.filter((u) => u.alive) : g.allies();
     for (const u of units) {
       if (u.thinking || !this.triggered(u)) continue;
       this.think(u);
@@ -266,7 +272,7 @@ export class Council {
       const answers = await callDecisions(this.cfg, body, this.fetchImpl);
       this.latencyMs = Date.now() - t0;
       decision = interpret(g, u, answers, options, fresh);
-      if (!decision.say && u.side === 'ally') decision.say = report(g, u, why);
+      if (!decision.say && (u.side === 'ally' || g.versus)) decision.say = report(g, u, why);
       source = 'llm';
       this.lastError = '';
     } catch (err) {
@@ -274,7 +280,7 @@ export class Council {
       if (this.cfg.mode === 'llm') {
         decision = { thought: `(decision model call failed: ${String(err.message || err).slice(0, 60)})` };
         source = 'error';
-      } else if (u.side === 'enemy') {
+      } else if (u.side === 'enemy' && !g.versus) {
         g.enemyAI(u);
         decision = { thought: '(scripted AI)', action: { ...u.action } };
         source = 'heuristic';
@@ -297,7 +303,7 @@ export class Council {
       hasKey: !!this.cfg.apiKey,
       usingLLM: this.useLLM,
       images: this.cfg.images,
-      enemies: this.drivesEnemies ? 'model' : 'script',
+      enemies: this.game.versus ? (this.useLLM ? 'model' : 'rules') : this.drivesEnemies ? 'model' : 'script',
       llmCalls: this.llmCalls,
       llmFailures: this.llmFailures,
       latencyMs: this.latencyMs,

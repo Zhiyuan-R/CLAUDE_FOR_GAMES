@@ -208,3 +208,67 @@ test('dialogue capitalizes the action at the start of a sentence', async () => {
   assert.match(said, /hold position/i);
   assert.doesNotMatch(said, /[.!?] hold position/, 'sentence-initial action is capitalized');
 });
+
+// ---------- versus ----------
+
+test('versus: each side hears only its own war council', () => {
+  const g = new Game({ versus: true });
+  g.say('player', 'Blue Commander', 'all', 'Blue secret plan: take the north bridge', '', 'ally');
+  g.say('player', 'Red Commander', 'all', 'Red secret plan: ambush at the south bridge', '', 'enemy');
+  const blue = g.perceive(g.unit('A'));
+  const red = g.perceive(g.unit('E3'));
+  assert.match(blue, /Blue secret plan/);
+  assert.doesNotMatch(blue, /Red secret plan/);
+  assert.match(red, /Red secret plan/);
+  assert.doesNotMatch(red, /Blue secret plan/);
+  assert.match(red, /human commander/);
+  const redView = g.snapshot({ side: 'enemy' });
+  assert.ok(redView.messages.every((m) => m.side !== 'ally'));
+  assert.equal(redView.perspective, 'enemy');
+});
+
+test('versus: snapshots hide the other side and show own bond', () => {
+  const g = new Game({ versus: true });
+  const red = g.snapshot({ side: 'enemy' });
+  assert.ok(red.units.some((u) => u.id === 'E1' && u.bond === 60));
+  assert.ok(!red.units.some((u) => u.id === 'A'), 'Blue starts outside Red vision');
+  const blue = g.snapshot({ side: 'ally' });
+  assert.ok(!blue.units.some((u) => u.id === 'E1'));
+});
+
+test('versus: Red units take orders from their commander and answer', async () => {
+  const g = new Game({ versus: true });
+  let body;
+  const fetchImpl = async (url, init) => {
+    body = JSON.parse(init.body);
+    return new Response(JSON.stringify({ answers: {
+      action: { choice: 'order_point_1', probabilities: { order_point_1: 0.9, hold: 0.1 } },
+      obey: { noul: 0.8 }, morale: { score: 3 }, bond: { score: 3 },
+    } }), { status: 200 });
+  };
+  const c = new Council(g, { ...cfg, enemyBrain: 'script' }, { fetchImpl });
+  assert.equal(g.scriptedEnemies, false, 'a human commands Red in versus');
+  g.say('player', 'Red Commander', 'E4', 'Bridge Patrol, hold the middle bridge (13,8)!', '', 'enemy');
+  const e4 = g.unit('E4');
+  await c.think(e4);
+  assert.deepEqual(Object.keys(body.questions), ['action', 'obey', 'morale', 'bond']);
+  assert.deepEqual(e4.action, { type: 'move', x: 13, y: 8 });
+  assert.equal(g.messages.at(-1).from, 'E4');
+  assert.equal(g.messages.at(-1).side, 'enemy');
+});
+
+test('versus: rule fallback lets Red target Blue generals by name', () => {
+  const g = new Game({ versus: true });
+  g.say('player', 'Red Commander', 'all', 'Raiders, attack Su Li!', '', 'enemy');
+  assert.deepEqual(heuristicDecision(g, g.unit('E3')).action, { type: 'attack', target: 'B' });
+});
+
+test('versus: the winner is reported for both perspectives', () => {
+  const g = new Game({ versus: true });
+  for (const u of g.allies()) u.alive = false;
+  g.step();
+  assert.equal(g.winner, 'enemy');
+  const red = g.snapshot({ side: 'enemy' });
+  assert.ok(red.events.some((e) => /Red wins/.test(e.text) && e.tone === 'good'));
+  assert.ok(g.snapshot({ side: 'ally' }).events.some((e) => /Red wins/.test(e.text) && e.tone === 'bad'));
+});

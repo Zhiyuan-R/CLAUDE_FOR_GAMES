@@ -101,30 +101,74 @@ export const GENERALS = [
 // Enemy units. `role`/`post`/`leash`/`waypoints` drive the scripted fallback AI;
 // `persona` drives the decision model when the enemy side is model-controlled.
 const ENEMIES = [
-  { id: 'E1', name: 'Banner Guard', kind: 'infantry', x: 21, y: 8, troops: 320, role: 'guard', post: { x: 21, y: 8 }, leash: 3,
+  { id: 'E1', name: 'Banner Guard', title: 'Captain of the Banner', kind: 'infantry', x: 21, y: 8, troops: 320, role: 'guard', post: { x: 21, y: 8 }, leash: 3,
+    lines: {
+      ack: ['The banner stands. {Act}.', 'As ordered: {act}.', 'Understood, commander. {Act}.'],
+      object: ['Commander, the banner comes first. I will {act}.', 'I will not abandon my post for that. I will {act}.'],
+      cheered: ['The Guard will not fail you.', 'Your faith steadies the line.'],
+      hurt: ['…The Guard has never broken, commander.', 'Words do not hold a banner, steel does.'],
+      spotted: ['{enemy} approaches from the {dir}. Shields up.'],
+      wounded: ['The Guard bleeds, but the banner stands.'],
+    },
     persona: 'You command the Red army\'s Banner Guard: stern and immovable. Your sacred duty is to hold the banner at (21,8); ' +
       'if it falls, the whole army is defeated. You only strike when enemies approach the banner, never let yourself be lured ' +
       'more than two or three tiles away from it, and rush back the moment the banner is left unguarded.' },
-  { id: 'E2', name: 'Hill Archers', kind: 'archer', x: 19, y: 5, troops: 200, role: 'guard', post: { x: 19, y: 5 }, leash: 2,
+  { id: 'E2', name: 'Hill Archers', title: 'Archer Captain', kind: 'archer', x: 19, y: 5, troops: 200, role: 'guard', post: { x: 19, y: 5 }, leash: 2,
+    lines: {
+      ack: ['Understood. {Act}.', 'Copy. {Act}, keeping my distance.', 'Very well: {act}.'],
+      object: ['That would put my archers in melee. I will {act} instead.', 'Too exposed, commander. I will {act}.'],
+      cheered: ['Ha! We will not miss.', 'Thank you, commander. Nock and draw!'],
+      hurt: ['…Noted.', 'We will see whose aim is useless.'],
+      spotted: ['Movement to the {dir}: {enemy}.'],
+      wounded: ['We are losing archers. We need a screen.'],
+    },
     persona: 'You are the captain of the Red archers: shrewd and careful with your life. You like to hold the east hill (19,5) ' +
       'and shoot from above, which extends your range and vision. When enemy cavalry or infantry get close you fall back ' +
       'behind friendly troops and never brawl in melee; when allies are under attack you support them from range.' },
-  { id: 'E3', name: 'Raiders', kind: 'cavalry', x: 18, y: 12, troops: 240, role: 'hunter', post: { x: 18, y: 12 }, leash: 8,
+  { id: 'E3', name: 'Raiders', title: 'Raider Chief', kind: 'cavalry', x: 18, y: 12, troops: 240, role: 'hunter', post: { x: 18, y: 12 }, leash: 8,
+    lines: {
+      ack: ['Ha! {Act}. Blood on the grass!', 'Now we are talking. {Act}!', 'Yes! {Act}!'],
+      object: ['Charge into that? No. I will {act}.', 'I hunt the weak, commander. I will {act}.'],
+      cheered: ['Ha! Watch us ride!', 'Now that is a commander!'],
+      hurt: ['Careful how you talk to my riders.', 'Hmph. Fine.'],
+      spotted: ['Prey sighted: {enemy}, to the {dir}!'],
+      wounded: ['They bloodied us. We will bloody them back.'],
+    },
     persona: 'You lead the Red raiders: cunning, bloodthirsty, and quick to seize an opening. You prey on isolated, wounded or ' +
       'fragile enemies (archers above all) and avoid charging into full-strength infantry. If the enemy\'s main force has ' +
       'crossed the river, you consider circling around to raid their camp at (2,8) to force them back.' },
-  { id: 'E4', name: 'Bridge Patrol', kind: 'infantry', x: 14, y: 8, troops: 260, role: 'patrol',
+  { id: 'E4', name: 'Bridge Patrol', title: 'Bridge Warden', kind: 'infantry', x: 14, y: 8, troops: 260, role: 'patrol',
     waypoints: [{ x: 13, y: 3 }, { x: 13, y: 8 }, { x: 13, y: 13 }, { x: 13, y: 8 }], leash: 4,
+    lines: {
+      ack: ['Understood. {Act}.', 'The bridges are ours. {Act}.', 'Right away: {act}.'],
+      object: ['If I leave the bridges they walk right in. I will {act}.', 'With respect, I will {act}.'],
+      cheered: ['The patrol will hold, commander.', 'Good to hear. We will not let them cross.'],
+      hurt: ['…We have held these bridges for years.', 'As you say.'],
+      spotted: ['{enemy} near the river, to my {dir}.'],
+      wounded: ['Heavy losses at the bridge.'],
+    },
     persona: 'You are the captain of the Red bridge patrol: steady and experienced. The three bridges (12,3), (12,8) and ' +
       '(12,13) are the only way across the river, and your job is to hold the bridgeheads and strike the enemy mid-crossing, ' +
       'moving to whichever bridge is threatened. When your strength runs low, fall back to the banner and join the guard.' },
-  { id: 'E5', name: 'South Garrison', kind: 'infantry', x: 20, y: 11, troops: 230, role: 'guard', post: { x: 20, y: 11 }, leash: 3,
+  { id: 'E5', name: 'South Garrison', title: 'Garrison Commander', kind: 'infantry', x: 20, y: 11, troops: 230, role: 'guard', post: { x: 20, y: 11 }, leash: 3,
+    lines: {
+      ack: ['Understood. {Act}.', 'The garrison moves: {act}.', 'Very well, {act}.'],
+      object: ['That leaves the south open. I will {act}.', 'Too risky. I will {act} instead.'],
+      cheered: ['The garrison thanks you, commander.', 'We will make you proud.'],
+      hurt: ['…We do our duty, commander.', 'Understood.'],
+      spotted: ['{enemy} spotted to the {dir}.'],
+      wounded: ['The garrison is thinning out.'],
+    },
     persona: 'You command the Red south garrison: cautious and steady. You guard the south side of the banner at (20,11) and ' +
       'back up the Banner Guard. You meet enemies coming from the south bridge or the forest, and hurry to support the ' +
       'guard if the banner comes under attack.' },
 ];
 
 export const SIDE_NAME = { ally: 'Blue', enemy: 'Red' };
+export const OBJECTIVE = {
+  ally: 'The battle begins. Objective: take the Red banner at (21,8) and hold it for 3 turns, or rout every Red unit. Do not let the enemy take our camp at (2,8).',
+  enemy: 'The battle begins. Objective: hold the banner at (21,8). Rout all three Blue generals, take the Blue camp at (2,8) for 3 turns, or hold out until turn 900.',
+};
 export const foeOf = (side) => (side === 'ally' ? 'enemy' : 'ally');
 
 export const dist = (a, b) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
@@ -142,6 +186,8 @@ export function dirName(from, to) {
 export class Game {
   constructor(opts = {}) {
     this.maxTicks = opts.maxTicks ?? 900;
+    // Versus: a second human commands the Red army through its own war council.
+    this.versus = !!opts.versus;
     // When false, enemy actions come from outside (the decision model) instead of enemyAI().
     this.scriptedEnemies = opts.scriptedEnemies ?? true;
     this.reset();
@@ -152,6 +198,7 @@ export class Game {
     this.tick = 0;
     this.status = 'playing'; // playing | won | lost
     this.result = '';
+    this.winner = null; // 'ally' | 'enemy' once the battle is over
     this.bannerHold = 0;
     this.campLost = 0;
     this.events = [];
@@ -164,13 +211,13 @@ export class Game {
         lastDecisionTick: -999, lastSeenMsg: 0, brainSource: '',
       })),
       ...ENEMIES.map((e) => ({
-        ...e, side: 'enemy', maxTroops: e.troops, morale: 75, action: { type: 'hold' },
-        routing: false, alive: true, wp: 0, thought: '', thinking: false, lastDecisionTick: -999, brainSource: '',
+        ...e, side: 'enemy', maxTroops: e.troops, morale: 75, bond: 60, action: { type: 'hold' },
+        routing: false, alive: true, wp: 0, thought: '', thinking: false, lastDecisionTick: -999, lastSeenMsg: 0, brainSource: '',
       })),
     ];
     this.msgSeq = 0;
-    this.say('system', 'System', 'all',
-      'The battle begins. Objective: take the Red banner at (21,8) and hold it for 3 turns, or rout every Red unit. Do not let the enemy take our camp at (2,8).');
+    this.say('system', 'System', 'all', OBJECTIVE.ally, '', 'ally');
+    if (this.versus) this.say('system', 'System', 'all', OBJECTIVE.enemy, '', 'enemy');
   }
 
   // ---------- helpers ----------
@@ -188,8 +235,10 @@ export class Game {
     if (this.events.length > 200) this.events.shift();
   }
 
-  say(from, name, to, text, source = '') {
-    const msg = { seq: ++this.msgSeq, tick: this.tick, from, name, to, text, source };
+  // Messages belong to one side's war council ('ally' / 'enemy'), or 'all'.
+  say(from, name, to, text, source = '', side) {
+    side ??= from === 'system' ? 'all' : from === 'player' ? 'ally' : this.unit(from)?.side ?? 'all';
+    const msg = { seq: ++this.msgSeq, tick: this.tick, from, name, to, text, source, side };
     this.messages.push(msg);
     if (this.messages.length > 200) this.messages.shift();
     return msg;
@@ -348,15 +397,24 @@ export class Game {
     lines.push(this.asciiMap(u));
     lines.push('');
     this.describeForces(u, lines, 'enemies', 'Fellow generals');
-    const msgs = this.messages.filter((m) => m.to === 'all' || m.to === u.id || m.from === u.id).slice(-10);
+    this.describeChannel(u, lines);
+    return lines.join('\n');
+  }
+
+  // The unit's own side's war council: messages to everyone or to this unit.
+  councilFor(u) {
+    return this.messages.filter((m) => (m.side === 'all' || m.side === u.side) && (m.to === 'all' || m.to === u.id || m.from === u.id));
+  }
+
+  describeChannel(u, lines) {
+    const msgs = this.councilFor(u).slice(-10);
     lines.push('');
     lines.push('War council channel (recent messages):');
     for (const m of msgs) {
       const isNew = m.seq > u.lastSeenMsg && m.from !== u.id;
-      const to = m.to === 'all' ? 'all generals' : (this.unit(m.to)?.name ?? m.to);
+      const to = m.to === 'all' ? 'all' : (this.unit(m.to)?.name ?? m.to);
       lines.push(`${isNew ? '[NEW] ' : ''}[${m.tick}] ${m.name} → ${to}: ${m.text}`);
     }
-    return lines.join('\n');
   }
 
   // The enemy side sees the same world from across the river: its own fog,
@@ -366,13 +424,15 @@ export class Game {
     lines.push(`[Turn ${this.tick}] (about 1 second per turn)`);
     lines.push('You belong to the Red army holding the east bank. Three Blue generals are attacking from the west bank. They win by taking our banner B(21,8) (standing on it with no Red unit adjacent for 3 turns) or by routing all of us.');
     lines.push('We win by routing every Blue general, by occupying the Blue camp C(2,8) for 3 turns, or by holding out until turn 900.');
-    this.describeSelf(u, lines, '');
+    if (this.versus) lines.push('The Red army is led by a human commander who gives orders in the Red war council channel below.');
+    this.describeSelf(u, lines, this.versus ? `, bond with the commander ${Math.round(u.bond)}` : '');
     lines.push('');
     lines.push('Map (x grows to the right 0-23, y grows downward 0-15; @ = you, digits = fellow Red units by E-number, A/B/C = Blue generals, ? = fog):');
     lines.push('Legend: . plains  F forest  H hill  ~ river (impassable)  = bridge  V village (resupply)  C Blue camp  B our banner');
     lines.push(this.asciiMap(u));
     lines.push('');
     this.describeForces(u, lines, 'Blue generals', 'Fellow Red units');
+    if (this.versus) this.describeChannel(u, lines);
     return lines.join('\n');
   }
 
@@ -532,46 +592,53 @@ export class Game {
     } else this.campLost = 0;
 
     const fighting = (u) => u.alive && !u.routing;
-    if (this.bannerHold >= 3) this.end('won', 'The banner has changed hands — Blue takes the Red banner. A great victory!');
-    else if (!this.enemies().some(fighting)) this.end('won', 'Every Red unit has been routed. A great victory!');
-    else if (!this.allies().length) this.end('lost', 'All three Blue generals have fallen…');
-    else if (this.campLost >= 3) this.end('lost', 'The camp has fallen and the army is in retreat…');
-    else if (this.tick >= this.maxTicks) this.end('lost', 'The campaign dragged on too long; supplies ran out and the army withdrew.');
+    if (this.bannerHold >= 3) this.end('won', 'The banner has changed hands: Blue takes the Red banner. Blue wins!');
+    else if (!this.enemies().some(fighting)) this.end('won', 'Every Red unit has been routed. Blue wins!');
+    else if (!this.allies().length) this.end('lost', 'All three Blue generals have fallen. Red wins!');
+    else if (this.campLost >= 3) this.end('lost', 'Red has taken the Blue camp. Red wins!');
+    else if (this.tick >= this.maxTicks) this.end('lost', 'Red held out until the end; Blue ran out of supplies. Red wins!');
   }
 
   end(status, text) {
-    this.status = status;
+    this.status = status; // 'won' / 'lost' from Blue's point of view
+    this.winner = status === 'won' ? 'ally' : 'enemy';
     this.result = text;
     this.log(text, 'all', status === 'won' ? 'good' : 'bad');
     this.say('system', 'System', 'all', text);
   }
 
   // ---------- serialization for the UI ----------
-  snapshot({ reveal = false } = {}) {
-    const seen = this.visibleSet();
+  // The battle as one side sees it: its own fog, its own council, and the
+  // other side's intentions kept secret until the battle is over.
+  snapshot({ reveal = false, side = 'ally' } = {}) {
+    const seen = this.visibleSet(side);
     const showAll = reveal || this.status !== 'playing';
+    const flipTone = (e) => (side === 'enemy' && e.tone ? { ...e, tone: e.tone === 'good' ? 'bad' : 'good' } : e);
     return {
       tick: this.tick,
       maxTicks: this.maxTicks,
       status: this.status,
+      winner: this.winner,
       result: this.result,
+      perspective: side,
+      versus: this.versus,
       bannerHold: this.bannerHold,
       seen: showAll ? null : [...seen],
       units: this.units
-        .filter((u) => u.side === 'ally' || showAll || (u.alive && seen.has(u.x + ',' + u.y)))
+        .filter((u) => u.side === side || showAll || (u.alive && seen.has(u.x + ',' + u.y)))
         .map((u) => {
-          // The enemy's intentions stay secret until the battle is over.
-          const secret = u.side === 'enemy' && !showAll;
+          const secret = u.side !== side && !showAll;
           return {
             id: u.id, name: u.name, title: u.title, side: u.side, kind: u.kind, x: u.x, y: u.y,
             troops: Math.round(u.troops), maxTroops: u.maxTroops, morale: Math.round(u.morale),
-            bond: u.bond !== undefined ? Math.round(u.bond) : undefined, alive: u.alive, routing: u.routing,
+            bond: u.side === side && (side === 'ally' || this.versus) ? Math.round(u.bond) : undefined,
+            alive: u.alive, routing: u.routing,
             action: secret ? { type: 'unknown' } : u.action, thought: secret ? '' : u.thought, top: secret ? null : u.top ?? null, obey: secret ? null : u.obey ?? null,
             thinking: secret ? false : u.thinking, brainSource: secret ? '' : u.brainSource,
           };
         }),
-      events: this.events.filter((e) => showAll || e.side !== 'enemy').slice(-40),
-      messages: this.messages.slice(-80),
+      events: this.events.filter((e) => showAll || e.side === 'all' || e.side === side).slice(-40).map(flipTone),
+      messages: this.messages.filter((m) => m.side === 'all' || m.side === side).slice(-80),
     };
   }
 }

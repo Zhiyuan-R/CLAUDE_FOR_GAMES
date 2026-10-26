@@ -341,6 +341,63 @@ canvas#map { display: block; width: 100%; height: auto; border-radius: 6px; curs
   .rcpt { padding: 1px 10px; }
 }
 
+/* Red commanders (versus) */
+.gen.red .medal .face, .avatar.red { background: radial-gradient(circle at 35% 30%, #ef8a74, var(--red-deep)); }
+.msg .bubble .meta b.red { color: #ef8a74; }
+.chip.side-ally .dot { background: var(--blue); }
+.chip.side-enemy .dot { background: var(--red); }
+
+/* Lobby and waiting room (server edition) */
+#lobby, #waiting {
+  position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 16px;
+  background: radial-gradient(circle at 50% 30%, rgba(38, 32, 23, .94), rgba(12, 10, 7, .97));
+}
+#lobby[hidden], #waiting[hidden] { display: none; }
+.lobby-card {
+  width: min(620px, 100%); max-height: 100%; overflow: auto; padding: 26px 26px 22px; border-radius: 14px;
+  background: linear-gradient(180deg, var(--panel-2), var(--panel)); border: 1px solid var(--line);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .6); display: grid; gap: 14px;
+}
+.lobby-card h2 { margin: 0; font: 700 30px/1.1 var(--display); letter-spacing: 2px; text-wrap: balance; }
+.lobby-card .lede { margin: 0; color: var(--ink-2); font-size: 15px; }
+.lobby-card .fine { margin: 0; font-size: 12px; color: var(--muted); }
+.lobby-options { display: grid; gap: 10px; }
+.lobby-options section { display: grid; gap: 6px; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--line-soft); background: rgba(0, 0, 0, .15); }
+.lobby-options h3 { margin: 0; font: 600 15px var(--display); letter-spacing: 1px; color: var(--ink); }
+.lobby-options p { margin: 0; color: var(--muted); font-size: 13px; }
+.lobby-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.lobby-row input {
+  flex: 1; min-width: 0; padding: 8px 12px; border-radius: 8px; background: #15110c; border: 1px solid var(--line); outline: none;
+  font-variant-numeric: tabular-nums; letter-spacing: 1px;
+}
+.lobby-row input:focus { border-color: var(--gold); }
+.lobby-btn {
+  padding: 8px 18px; border-radius: 999px; border: 1px solid var(--gold); background: var(--gold-soft); color: var(--gold);
+  font: 600 13px var(--display); letter-spacing: 1px;
+}
+.lobby-btn.primary { background: linear-gradient(180deg, #e2b866, #b98a35); color: #1d150a; border-color: transparent; }
+.lobby-btn:hover, .lobby-btn:focus-visible { filter: brightness(1.08); outline: 2px solid var(--gold); outline-offset: 2px; }
+.lobby-btn:disabled { opacity: .5; cursor: default; }
+.lobby-error { margin: 0; color: #f1a596; font-size: 13px; }
+#note { margin: 0; font-size: 12px; color: var(--amber); }
+
+/* Five Red commanders need less room per card, and the card list scrolls on
+   its own so the council chat always keeps its space. */
+.generals.many { gap: 6px; }
+.generals.many .gen { padding: 6px 10px; gap: 2px 10px; grid-template-columns: 36px 1fr; }
+.generals.many .medal { width: 36px; height: 36px; grid-row: span 2; }
+.generals.many .medal .face { inset: 4px; font-size: 15px; }
+.generals.many .gen-name { font-size: 13px; }
+.generals.many .stat { font-size: 10px; gap: 1px; }
+.generals.many .doing { font-size: 11px; grid-column: 1 / -1; }
+.generals.many .mind { padding-top: 3px; gap: 2px; }
+.generals.many .seg { height: 3px; }
+.generals.many .seglegend span:not(:first-child):not(.obey) { display: none; }
+@media (min-width: 900px) {
+  .generals { flex: 0 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+  .comms { flex: 1 0 330px; }
+}
+
 /* web edition */
 :root { color-scheme: dark; }
 html, body { background: var(--bg); }
@@ -363,7 +420,6 @@ html, body { background: var(--bg); }
   background: linear-gradient(180deg, #e2b866, #b98a35); color: #1d150a; font: 700 15px var(--display); letter-spacing: 2px;
 }
 #begin:hover, #begin:focus-visible { filter: brightness(1.08); outline: 2px solid var(--gold); outline-offset: 3px; }
-#note { margin: 0; font-size: 12px; color: var(--amber); }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>
 
@@ -560,30 +616,74 @@ const GENERALS = [
 // Enemy units. `role`/`post`/`leash`/`waypoints` drive the scripted fallback AI;
 // `persona` drives the decision model when the enemy side is model-controlled.
 const ENEMIES = [
-  { id: 'E1', name: 'Banner Guard', kind: 'infantry', x: 21, y: 8, troops: 320, role: 'guard', post: { x: 21, y: 8 }, leash: 3,
+  { id: 'E1', name: 'Banner Guard', title: 'Captain of the Banner', kind: 'infantry', x: 21, y: 8, troops: 320, role: 'guard', post: { x: 21, y: 8 }, leash: 3,
+    lines: {
+      ack: ['The banner stands. {Act}.', 'As ordered: {act}.', 'Understood, commander. {Act}.'],
+      object: ['Commander, the banner comes first. I will {act}.', 'I will not abandon my post for that. I will {act}.'],
+      cheered: ['The Guard will not fail you.', 'Your faith steadies the line.'],
+      hurt: ['…The Guard has never broken, commander.', 'Words do not hold a banner, steel does.'],
+      spotted: ['{enemy} approaches from the {dir}. Shields up.'],
+      wounded: ['The Guard bleeds, but the banner stands.'],
+    },
     persona: 'You command the Red army\'s Banner Guard: stern and immovable. Your sacred duty is to hold the banner at (21,8); ' +
       'if it falls, the whole army is defeated. You only strike when enemies approach the banner, never let yourself be lured ' +
       'more than two or three tiles away from it, and rush back the moment the banner is left unguarded.' },
-  { id: 'E2', name: 'Hill Archers', kind: 'archer', x: 19, y: 5, troops: 200, role: 'guard', post: { x: 19, y: 5 }, leash: 2,
+  { id: 'E2', name: 'Hill Archers', title: 'Archer Captain', kind: 'archer', x: 19, y: 5, troops: 200, role: 'guard', post: { x: 19, y: 5 }, leash: 2,
+    lines: {
+      ack: ['Understood. {Act}.', 'Copy. {Act}, keeping my distance.', 'Very well: {act}.'],
+      object: ['That would put my archers in melee. I will {act} instead.', 'Too exposed, commander. I will {act}.'],
+      cheered: ['Ha! We will not miss.', 'Thank you, commander. Nock and draw!'],
+      hurt: ['…Noted.', 'We will see whose aim is useless.'],
+      spotted: ['Movement to the {dir}: {enemy}.'],
+      wounded: ['We are losing archers. We need a screen.'],
+    },
     persona: 'You are the captain of the Red archers: shrewd and careful with your life. You like to hold the east hill (19,5) ' +
       'and shoot from above, which extends your range and vision. When enemy cavalry or infantry get close you fall back ' +
       'behind friendly troops and never brawl in melee; when allies are under attack you support them from range.' },
-  { id: 'E3', name: 'Raiders', kind: 'cavalry', x: 18, y: 12, troops: 240, role: 'hunter', post: { x: 18, y: 12 }, leash: 8,
+  { id: 'E3', name: 'Raiders', title: 'Raider Chief', kind: 'cavalry', x: 18, y: 12, troops: 240, role: 'hunter', post: { x: 18, y: 12 }, leash: 8,
+    lines: {
+      ack: ['Ha! {Act}. Blood on the grass!', 'Now we are talking. {Act}!', 'Yes! {Act}!'],
+      object: ['Charge into that? No. I will {act}.', 'I hunt the weak, commander. I will {act}.'],
+      cheered: ['Ha! Watch us ride!', 'Now that is a commander!'],
+      hurt: ['Careful how you talk to my riders.', 'Hmph. Fine.'],
+      spotted: ['Prey sighted: {enemy}, to the {dir}!'],
+      wounded: ['They bloodied us. We will bloody them back.'],
+    },
     persona: 'You lead the Red raiders: cunning, bloodthirsty, and quick to seize an opening. You prey on isolated, wounded or ' +
       'fragile enemies (archers above all) and avoid charging into full-strength infantry. If the enemy\'s main force has ' +
       'crossed the river, you consider circling around to raid their camp at (2,8) to force them back.' },
-  { id: 'E4', name: 'Bridge Patrol', kind: 'infantry', x: 14, y: 8, troops: 260, role: 'patrol',
+  { id: 'E4', name: 'Bridge Patrol', title: 'Bridge Warden', kind: 'infantry', x: 14, y: 8, troops: 260, role: 'patrol',
     waypoints: [{ x: 13, y: 3 }, { x: 13, y: 8 }, { x: 13, y: 13 }, { x: 13, y: 8 }], leash: 4,
+    lines: {
+      ack: ['Understood. {Act}.', 'The bridges are ours. {Act}.', 'Right away: {act}.'],
+      object: ['If I leave the bridges they walk right in. I will {act}.', 'With respect, I will {act}.'],
+      cheered: ['The patrol will hold, commander.', 'Good to hear. We will not let them cross.'],
+      hurt: ['…We have held these bridges for years.', 'As you say.'],
+      spotted: ['{enemy} near the river, to my {dir}.'],
+      wounded: ['Heavy losses at the bridge.'],
+    },
     persona: 'You are the captain of the Red bridge patrol: steady and experienced. The three bridges (12,3), (12,8) and ' +
       '(12,13) are the only way across the river, and your job is to hold the bridgeheads and strike the enemy mid-crossing, ' +
       'moving to whichever bridge is threatened. When your strength runs low, fall back to the banner and join the guard.' },
-  { id: 'E5', name: 'South Garrison', kind: 'infantry', x: 20, y: 11, troops: 230, role: 'guard', post: { x: 20, y: 11 }, leash: 3,
+  { id: 'E5', name: 'South Garrison', title: 'Garrison Commander', kind: 'infantry', x: 20, y: 11, troops: 230, role: 'guard', post: { x: 20, y: 11 }, leash: 3,
+    lines: {
+      ack: ['Understood. {Act}.', 'The garrison moves: {act}.', 'Very well, {act}.'],
+      object: ['That leaves the south open. I will {act}.', 'Too risky. I will {act} instead.'],
+      cheered: ['The garrison thanks you, commander.', 'We will make you proud.'],
+      hurt: ['…We do our duty, commander.', 'Understood.'],
+      spotted: ['{enemy} spotted to the {dir}.'],
+      wounded: ['The garrison is thinning out.'],
+    },
     persona: 'You command the Red south garrison: cautious and steady. You guard the south side of the banner at (20,11) and ' +
       'back up the Banner Guard. You meet enemies coming from the south bridge or the forest, and hurry to support the ' +
       'guard if the banner comes under attack.' },
 ];
 
 const SIDE_NAME = { ally: 'Blue', enemy: 'Red' };
+const OBJECTIVE = {
+  ally: 'The battle begins. Objective: take the Red banner at (21,8) and hold it for 3 turns, or rout every Red unit. Do not let the enemy take our camp at (2,8).',
+  enemy: 'The battle begins. Objective: hold the banner at (21,8). Rout all three Blue generals, take the Blue camp at (2,8) for 3 turns, or hold out until turn 900.',
+};
 const foeOf = (side) => (side === 'ally' ? 'enemy' : 'ally');
 
 const dist = (a, b) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
@@ -601,6 +701,8 @@ function dirName(from, to) {
 class Game {
   constructor(opts = {}) {
     this.maxTicks = opts.maxTicks ?? 900;
+    // Versus: a second human commands the Red army through its own war council.
+    this.versus = !!opts.versus;
     // When false, enemy actions come from outside (the decision model) instead of enemyAI().
     this.scriptedEnemies = opts.scriptedEnemies ?? true;
     this.reset();
@@ -611,6 +713,7 @@ class Game {
     this.tick = 0;
     this.status = 'playing'; // playing | won | lost
     this.result = '';
+    this.winner = null; // 'ally' | 'enemy' once the battle is over
     this.bannerHold = 0;
     this.campLost = 0;
     this.events = [];
@@ -623,13 +726,13 @@ class Game {
         lastDecisionTick: -999, lastSeenMsg: 0, brainSource: '',
       })),
       ...ENEMIES.map((e) => ({
-        ...e, side: 'enemy', maxTroops: e.troops, morale: 75, action: { type: 'hold' },
-        routing: false, alive: true, wp: 0, thought: '', thinking: false, lastDecisionTick: -999, brainSource: '',
+        ...e, side: 'enemy', maxTroops: e.troops, morale: 75, bond: 60, action: { type: 'hold' },
+        routing: false, alive: true, wp: 0, thought: '', thinking: false, lastDecisionTick: -999, lastSeenMsg: 0, brainSource: '',
       })),
     ];
     this.msgSeq = 0;
-    this.say('system', 'System', 'all',
-      'The battle begins. Objective: take the Red banner at (21,8) and hold it for 3 turns, or rout every Red unit. Do not let the enemy take our camp at (2,8).');
+    this.say('system', 'System', 'all', OBJECTIVE.ally, '', 'ally');
+    if (this.versus) this.say('system', 'System', 'all', OBJECTIVE.enemy, '', 'enemy');
   }
 
   // ---------- helpers ----------
@@ -647,8 +750,10 @@ class Game {
     if (this.events.length > 200) this.events.shift();
   }
 
-  say(from, name, to, text, source = '') {
-    const msg = { seq: ++this.msgSeq, tick: this.tick, from, name, to, text, source };
+  // Messages belong to one side's war council ('ally' / 'enemy'), or 'all'.
+  say(from, name, to, text, source = '', side) {
+    side ??= from === 'system' ? 'all' : from === 'player' ? 'ally' : this.unit(from)?.side ?? 'all';
+    const msg = { seq: ++this.msgSeq, tick: this.tick, from, name, to, text, source, side };
     this.messages.push(msg);
     if (this.messages.length > 200) this.messages.shift();
     return msg;
@@ -807,15 +912,24 @@ class Game {
     lines.push(this.asciiMap(u));
     lines.push('');
     this.describeForces(u, lines, 'enemies', 'Fellow generals');
-    const msgs = this.messages.filter((m) => m.to === 'all' || m.to === u.id || m.from === u.id).slice(-10);
+    this.describeChannel(u, lines);
+    return lines.join('\n');
+  }
+
+  // The unit's own side's war council: messages to everyone or to this unit.
+  councilFor(u) {
+    return this.messages.filter((m) => (m.side === 'all' || m.side === u.side) && (m.to === 'all' || m.to === u.id || m.from === u.id));
+  }
+
+  describeChannel(u, lines) {
+    const msgs = this.councilFor(u).slice(-10);
     lines.push('');
     lines.push('War council channel (recent messages):');
     for (const m of msgs) {
       const isNew = m.seq > u.lastSeenMsg && m.from !== u.id;
-      const to = m.to === 'all' ? 'all generals' : (this.unit(m.to)?.name ?? m.to);
+      const to = m.to === 'all' ? 'all' : (this.unit(m.to)?.name ?? m.to);
       lines.push(`${isNew ? '[NEW] ' : ''}[${m.tick}] ${m.name} → ${to}: ${m.text}`);
     }
-    return lines.join('\n');
   }
 
   // The enemy side sees the same world from across the river: its own fog,
@@ -825,13 +939,15 @@ class Game {
     lines.push(`[Turn ${this.tick}] (about 1 second per turn)`);
     lines.push('You belong to the Red army holding the east bank. Three Blue generals are attacking from the west bank. They win by taking our banner B(21,8) (standing on it with no Red unit adjacent for 3 turns) or by routing all of us.');
     lines.push('We win by routing every Blue general, by occupying the Blue camp C(2,8) for 3 turns, or by holding out until turn 900.');
-    this.describeSelf(u, lines, '');
+    if (this.versus) lines.push('The Red army is led by a human commander who gives orders in the Red war council channel below.');
+    this.describeSelf(u, lines, this.versus ? `, bond with the commander ${Math.round(u.bond)}` : '');
     lines.push('');
     lines.push('Map (x grows to the right 0-23, y grows downward 0-15; @ = you, digits = fellow Red units by E-number, A/B/C = Blue generals, ? = fog):');
     lines.push('Legend: . plains  F forest  H hill  ~ river (impassable)  = bridge  V village (resupply)  C Blue camp  B our banner');
     lines.push(this.asciiMap(u));
     lines.push('');
     this.describeForces(u, lines, 'Blue generals', 'Fellow Red units');
+    if (this.versus) this.describeChannel(u, lines);
     return lines.join('\n');
   }
 
@@ -991,51 +1107,58 @@ class Game {
     } else this.campLost = 0;
 
     const fighting = (u) => u.alive && !u.routing;
-    if (this.bannerHold >= 3) this.end('won', 'The banner has changed hands — Blue takes the Red banner. A great victory!');
-    else if (!this.enemies().some(fighting)) this.end('won', 'Every Red unit has been routed. A great victory!');
-    else if (!this.allies().length) this.end('lost', 'All three Blue generals have fallen…');
-    else if (this.campLost >= 3) this.end('lost', 'The camp has fallen and the army is in retreat…');
-    else if (this.tick >= this.maxTicks) this.end('lost', 'The campaign dragged on too long; supplies ran out and the army withdrew.');
+    if (this.bannerHold >= 3) this.end('won', 'The banner has changed hands: Blue takes the Red banner. Blue wins!');
+    else if (!this.enemies().some(fighting)) this.end('won', 'Every Red unit has been routed. Blue wins!');
+    else if (!this.allies().length) this.end('lost', 'All three Blue generals have fallen. Red wins!');
+    else if (this.campLost >= 3) this.end('lost', 'Red has taken the Blue camp. Red wins!');
+    else if (this.tick >= this.maxTicks) this.end('lost', 'Red held out until the end; Blue ran out of supplies. Red wins!');
   }
 
   end(status, text) {
-    this.status = status;
+    this.status = status; // 'won' / 'lost' from Blue's point of view
+    this.winner = status === 'won' ? 'ally' : 'enemy';
     this.result = text;
     this.log(text, 'all', status === 'won' ? 'good' : 'bad');
     this.say('system', 'System', 'all', text);
   }
 
   // ---------- serialization for the UI ----------
-  snapshot({ reveal = false } = {}) {
-    const seen = this.visibleSet();
+  // The battle as one side sees it: its own fog, its own council, and the
+  // other side's intentions kept secret until the battle is over.
+  snapshot({ reveal = false, side = 'ally' } = {}) {
+    const seen = this.visibleSet(side);
     const showAll = reveal || this.status !== 'playing';
+    const flipTone = (e) => (side === 'enemy' && e.tone ? { ...e, tone: e.tone === 'good' ? 'bad' : 'good' } : e);
     return {
       tick: this.tick,
       maxTicks: this.maxTicks,
       status: this.status,
+      winner: this.winner,
       result: this.result,
+      perspective: side,
+      versus: this.versus,
       bannerHold: this.bannerHold,
       seen: showAll ? null : [...seen],
       units: this.units
-        .filter((u) => u.side === 'ally' || showAll || (u.alive && seen.has(u.x + ',' + u.y)))
+        .filter((u) => u.side === side || showAll || (u.alive && seen.has(u.x + ',' + u.y)))
         .map((u) => {
-          // The enemy's intentions stay secret until the battle is over.
-          const secret = u.side === 'enemy' && !showAll;
+          const secret = u.side !== side && !showAll;
           return {
             id: u.id, name: u.name, title: u.title, side: u.side, kind: u.kind, x: u.x, y: u.y,
             troops: Math.round(u.troops), maxTroops: u.maxTroops, morale: Math.round(u.morale),
-            bond: u.bond !== undefined ? Math.round(u.bond) : undefined, alive: u.alive, routing: u.routing,
+            bond: u.side === side && (side === 'ally' || this.versus) ? Math.round(u.bond) : undefined,
+            alive: u.alive, routing: u.routing,
             action: secret ? { type: 'unknown' } : u.action, thought: secret ? '' : u.thought, top: secret ? null : u.top ?? null, obey: secret ? null : u.obey ?? null,
             thinking: secret ? false : u.thinking, brainSource: secret ? '' : u.brainSource,
           };
         }),
-      events: this.events.filter((e) => showAll || e.side !== 'enemy').slice(-40),
-      messages: this.messages.slice(-80),
+      events: this.events.filter((e) => showAll || e.side === 'all' || e.side === side).slice(-40).map(flipTone),
+      messages: this.messages.filter((m) => m.side === 'all' || m.side === side).slice(-80),
     };
   }
 }
 
-return { W, H, buildMap, CAMP, BANNER, KINDS, GENERALS, SIDE_NAME, foeOf, dist, dirName, Game };
+return { W, H, buildMap, CAMP, BANNER, KINDS, GENERALS, SIDE_NAME, OBJECTIVE, foeOf, dist, dirName, Game };
 })();
 
 // ---- src/tactics.js ----
@@ -1068,7 +1191,7 @@ const COORD = /\(?\s*(\d{1,2})\s*,\s*(\d{1,2})\s*\)?/g;
 // Coordinates the commander mentioned recently to this general.
 function orderPoints(game, u) {
   const pts = [];
-  const msgs = game.messages.filter((m) => m.from === 'player' && (m.to === 'all' || m.to === u.id)).slice(-3).reverse();
+  const msgs = game.messages.filter((m) => isOrderFor(m, u)).slice(-3).reverse();
   for (const m of msgs) for (const c of m.text.matchAll(COORD)) {
     const x = +c[1], y = +c[2];
     if (x < 24 && y < 16 && game.passable(x, y) && !pts.some((p) => p.x === x && p.y === y)) pts.push({ x, y });
@@ -1088,7 +1211,8 @@ function actionOptions(game, u) {
   for (const e of game.visibleFoes(u.side).sort((a, b) => dist(u, a) - dist(u, b)))
     add(`attack_${e.id}`, `Attack ${e.id} ${e.name} (${KINDS[e.kind].label}, about ${Math.round(e.troops)} troops, ${dist(u, e)} tiles to the ${dirName(u, e)})`,
       { type: 'attack', target: e.id }, `Attack ${e.id}`);
-  const points = red ? [] : orderPoints(game, u);
+  // Red takes the commander's named positions only when a human commands it.
+  const points = red && !game.versus ? [] : orderPoints(game, u);
   const landmarkAt = (p) => LANDMARKS.find((l) => l.x === p.x && l.y === p.y);
   points.forEach((p, i) => {
     const l = landmarkAt(p);
@@ -1109,8 +1233,13 @@ function actionOptions(game, u) {
   return opts;
 }
 
+// A commander's message to this unit's own side, addressed to everyone or to it.
+function isOrderFor(m, u) {
+  return m.from === 'player' && (m.side ?? 'ally') === u.side && (m.to === 'all' || m.to === u.id);
+}
+
 function newOrders(game, u) {
-  return game.messages.filter((m) => m.from === 'player' && m.seq > u.lastSeenMsg && (m.to === 'all' || m.to === u.id));
+  return game.messages.filter((m) => m.seq > u.lastSeenMsg && isOrderFor(m, u));
 }
 
 const RETREAT_WORDS = /\b(retreat|fall back|withdraw|pull back)\b/i;
@@ -1120,20 +1249,19 @@ const HOLD_WORDS = /\b(hold|stay|wait|defend|guard|stand fast|don't move)\b/i;
 // Understands a handful of keywords so orders still do something offline.
 function heuristicDecision(game, u) {
   const order = newOrders(game, u).at(-1)?.text ?? '';
-  const vis = game.visibleEnemies();
+  const vis = game.visibleFoes(u.side);
   const d = { thought: '(rule engine)', say: '', action: null };
 
   const coord = [...order.matchAll(COORD)][0];
-  const target = order.match(/\bE\s*([1-9])\b/i);
-  const alive = target && game.unit('E' + target[1])?.alive;
+  const target = namedFoe(game, u, order);
   if (RETREAT_WORDS.test(order)) d.action = { type: 'retreat' };
-  else if (alive) d.action = { type: 'attack', target: 'E' + target[1] };
+  else if (target) d.action = { type: 'attack', target: target.id };
   else if (coord) d.action = { type: 'move', x: +coord[1], y: +coord[2] };
   else if (HOLD_WORDS.test(order)) d.action = { type: 'hold' };
   else if (/\bbanner\b/i.test(order)) d.action = { type: 'move', ...BANNER };
   if (order) d.say = d.action
     ? `As you command: ${game.describeAction(game.sanitizeAction(d.action, u) ?? { type: 'hold' }, u)}.`
-    : 'I did not follow that, my lord. Give me a position or a target (e.g. E2 or (10,5)).';
+    : `I did not follow that, commander. Give me a position or a target (e.g. ${u.side === 'ally' ? 'E2' : 'Huo Lie'} or (10,5)).`;
   if (/\b(well done|great|brave|proud|trust|thank)/i.test(order)) d.feeling = { morale: 3, bond: 2 };
   if (/\b(useless|idiot|coward|fool|pathetic)/i.test(order)) d.feeling = { morale: -3, bond: -4 };
 
@@ -1142,12 +1270,27 @@ function heuristicDecision(game, u) {
     const near = vis.filter((e) => dist(u, e) <= KINDS[u.kind].vision).sort((a, b) => dist(u, a) - dist(u, b))[0];
     if (u.troops < u.maxTroops * 0.35) d.action = { type: 'retreat' };
     else if (near && u.action.type === 'hold' && u.troops >= near.troops * 0.8) d.action = { type: 'attack', target: near.id };
-    else if (u.action.type === 'retreat' && u.x === CAMP.x && u.y === CAMP.y) d.action = { type: 'hold' };
+    else if (u.action.type === 'retreat' && u.x === home(u).x && u.y === home(u).y) d.action = { type: 'hold' };
   }
   return d;
 }
 
-return { pick, LANDMARKS, COORD, orderPoints, cap, actionOptions, newOrders, RETREAT_WORDS, HOLD_WORDS, heuristicDecision };
+const home = (u) => (u.side === 'ally' ? CAMP : u.post ?? BANNER);
+
+// The living enemy unit an order names: by E-number (E2), by name ("Su Li"),
+// or by a general's letter after an attack verb ("attack B").
+function namedFoe(game, u, text) {
+  const foes = game.units.filter((f) => f.alive && f.side !== u.side);
+  for (const f of foes) {
+    const byId = f.id.length > 1
+      ? new RegExp(`\\b${f.id[0]}\\s*${f.id.slice(1)}\\b`, 'i').test(text)
+      : new RegExp(`\\b(attack|hit|charge|engage|strike|target|kill)\\s+(general\\s+)?${f.id}\\b`, 'i').test(text);
+    if (byId || text.toLowerCase().includes(f.name.toLowerCase())) return f;
+  }
+  return null;
+}
+
+return { pick, LANDMARKS, COORD, orderPoints, cap, actionOptions, isOrderFor, newOrders, RETREAT_WORDS, HOLD_WORDS, heuristicDecision };
 })();
 
 // ---- web/claude-council.js ----
@@ -1556,35 +1699,25 @@ const flashes = new Map(); // unit id -> time
 let effects = []; // floating texts
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const glyphOf = (u) => (u.name?.startsWith('Old ') ? u.name[4] : u.name?.[0] ?? u.id);
+// Blue generals show an initial (H, S, Q); Red units show their number.
+const glyphOf = (u) => (/^E\d$/.test(u.id ?? '') ? u.id.slice(1) : u.name?.startsWith('Old ') ? u.name[4] : u.name?.[0] ?? u.id);
 const DISPLAY = '"Cinzel", "Trajan Pro", Georgia, serif';
 const BODY = '"Spectral", Georgia, serif';
 
 // ---------- data ----------
-// The UI talks to the battle through a transport: the Node server over SSE by
-// default, or an in-page battle (the web edition sets window.WC_TRANSPORT).
-function serverTransport() {
-  const post = (path, body) => fetch(path, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined,
-  });
-  return {
-    connect(onInit, onState) {
-      const es = new EventSource('/api/stream');
-      es.addEventListener('init', (e) => onInit(JSON.parse(e.data)));
-      es.onmessage = (e) => onState(JSON.parse(e.data));
-    },
-    order: (to, text) => post('/api/order', { to, text }),
-    pause: () => post('/api/pause'),
-    reset: () => post('/api/reset'),
-    viewUrl: (id) => `/api/view/${id}.png`,
-  };
-}
-const transport = window.WC_TRANSPORT ?? serverTransport();
+// The UI talks to the battle through a transport set up before this script:
+// the server lobby (public/lobby.js) or the in-page battle of the web edition.
+const transport = window.WC_TRANSPORT;
+// The side this player commands ('ally' = Blue, 'enemy' = Red).
+const me = () => init?.side ?? 'ally';
+const SIDE_NAME = { ally: 'Blue', enemy: 'Red' };
 
 transport.connect((data) => {
   init = data;
   resize();
   renderRecipients();
+  if (data.objective) $('.objective').textContent = 'Objective: ' + data.objective;
+  if (data.side === 'enemy') $('#review-tab').textContent = 'Enemy review';
 }, (next) => {
   ingest(next);
   state = next;
@@ -1843,7 +1976,7 @@ function drawIntents(now) {
   const byId = Object.fromEntries(state.units.map((u) => [u.id, u]));
   for (const u of state.units) {
     if (!u.alive || u.routing || !u.action || u.action.type === 'unknown' || u.action.type === 'hold') continue;
-    if (u.side === 'enemy' && state.status === 'playing') continue;
+    if (u.side !== me() && state.status === 'playing') continue;
     let dest = null;
     if (u.action.type === 'move') dest = u.action;
     else if (u.action.type === 'attack' && byId[u.action.target]?.alive) dest = animPos(u.action.target, now);
@@ -2020,7 +2153,7 @@ canvas.addEventListener('click', (ev) => {
   if (!c) return;
   const u = state.units.find((u) => u.alive && u.x === c.x && u.y === c.y);
   const input = $('#text');
-  if (u && u.side === 'ally') { setRecipient(u.id); input.focus(); return; }
+  if (u && u.side === me()) { setRecipient(u.id); input.focus(); return; }
   input.value = (input.value ? input.value.trimEnd() + ' ' : '') + (u ? u.id : `(${c.x},${c.y})`);
   input.focus();
 });
@@ -2111,20 +2244,25 @@ function renderTop() {
   $('#pause').textContent = state.paused ? '▶' : '❚❚';
   const b = state.brain;
   const blue = b.usingLLM ? (b.lastError ? 'warn' : 'ok') : 'warn';
-  const chips = [
+  const chips = state.versus ? [
+    `<span class="chip side-${me()}"><i class="dot"></i>You command ${SIDE_NAME[me()]}</span>`,
+    `<span class="chip ${state.lobby?.opponent ? 'ok' : 'warn'}"><i class="dot"></i>Opponent ${state.lobby?.opponent ? 'connected' : 'away'}</span>`,
+  ] : [
     `<span class="chip ${blue}" title="${esc(b.lastError || b.baseUrl)}"><i class="dot"></i>Blue · ${b.usingLLM ? brainLabel() : 'Rule fallback'}</span>`,
     `<span class="chip ${b.enemies === 'model' ? blue : 'warn'}"><i class="dot"></i>Red · ${b.enemies === 'model' ? brainLabel() : 'Scripted AI'}</span>`,
   ];
+  if (state.versus && !b.usingLLM) chips.push('<span class="chip warn"><i class="dot"></i>Rule fallback</span>');
   if (b.usingLLM) chips.push(`<span class="chip" title="${b.llmCalls} calls, ${b.llmFailures} failed">${esc(b.model)}${b.images ? ' · vision' : ''}${b.latencyMs ? ` · ${b.latencyMs}ms` : ''}</span>`);
   const html = chips.join('');
   if ($('#brain').innerHTML !== html) $('#brain').innerHTML = html;
   const note = $('#note');
-  if (note) { note.textContent = b.note || ''; note.hidden = !b.note; }
+  if (note && b.note !== undefined) { note.textContent = b.note; note.hidden = !b.note; }
 }
 
 let generalsKey = '';
 function renderGenerals(force) {
-  const gens = state.units.filter((u) => u.side === 'ally');
+  const gens = state.units.filter((u) => u.side === me());
+  $('#generals').classList.toggle('many', gens.length > 3);
   const key = JSON.stringify([to, gens]);
   if (!force && key === generalsKey) return;
   generalsKey = key;
@@ -2142,7 +2280,7 @@ function renderGenerals(force) {
     const col = frac > 0.55 ? '#7fd39a' : frac > 0.28 ? '#e8b14a' : '#ec6a55';
     const top = u.top || [];
     return `
-    <div class="gen ${u.alive ? '' : 'dead'} ${to === u.id ? 'selected' : ''}" data-id="${u.id}">
+    <div class="gen ${u.side === 'enemy' ? 'red' : ''} ${u.alive ? '' : 'dead'} ${to === u.id ? 'selected' : ''}" data-id="${u.id}">
       <div class="medal ${u.thinking ? 'thinking' : ''}">${ring(frac, col)}<div class="face">${esc(glyphOf(u))}</div></div>
       <div class="gen-head">
         <span class="gen-name">${esc(u.name)}</span><span class="gen-title">${esc(u.title)} · ${KIND_LABEL[u.kind]}</span>
@@ -2180,8 +2318,8 @@ function renderChat() {
     if (m.from === 'system') return `<div class="msg system"><div class="text">${esc(m.text)}</div></div>`;
     const player = m.from === 'player';
     return `<div class="msg ${player ? 'player' : ''}">
-      <div class="avatar">${player ? '★' : esc(glyphOf({ name: m.name }))}</div>
-      <div class="bubble"><div class="meta"><b>${esc(m.name)}</b>${m.to !== 'all' ? `→ ${esc(nameOf(m.to))} ` : ''}· ${m.tick}
+      <div class="avatar ${/^E\d$/.test(m.from) ? 'red' : ''}">${player ? '★' : esc(glyphOf({ id: m.from, name: m.name }))}</div>
+      <div class="bubble"><div class="meta"><b class="${/^E\d$/.test(m.from) ? 'red' : ''}">${esc(m.name)}</b>${m.to !== 'all' ? `→ ${esc(nameOf(m.to))} ` : ''}· ${m.tick}
         ${m.source && m.source !== 'llm' ? `<span class="src">${srcLabel(m.source)}</span>` : ''}</div>
       <div class="text">${esc(m.text)}</div></div></div>`;
   }).join('');
@@ -2203,8 +2341,8 @@ function renderReview() {
   const over = state.status !== 'playing';
   $('#review-tab').hidden = !over;
   if (!over) return;
-  const reds = state.units.filter((u) => u.side === 'enemy');
-  $('#review').innerHTML = `<p class="rv t">The battle is over. Here is how the Red army was deployed and what it decided:</p>` + reds.map((u) => `
+  const reds = state.units.filter((u) => u.side !== me());
+  $('#review').innerHTML = `<p class="rv t">The battle is over. Here is how the ${me() === 'ally' ? 'Red' : 'Blue'} army was deployed and what it decided:</p>` + reds.map((u) => `
     <div class="rv"><b>${esc(u.id)} ${esc(u.name)}</b> (${KIND_LABEL[u.kind].toLowerCase()}) ${u.alive ? `${u.troops} troops left` : 'wiped out'} · ${u.brainSource ? srcLabel(u.brainSource) : 'Scripted'}<br />
     <span class="t">Last decision: </span>${esc(describe(u.action))}${u.thought ? `<br /><span class="t">${esc(u.thought)}</span>` : ''}</div>`).join('');
 }
@@ -2214,8 +2352,9 @@ function renderOverlay() {
   $('#overlay').hidden = !over;
   if (!over) return;
   const v = $('#verdict');
-  v.textContent = state.status === 'won' ? 'Victory' : 'Defeat';
-  v.className = 'verdict ' + state.status;
+  const won = state.winner ? state.winner === me() : state.status === 'won';
+  v.textContent = won ? 'Victory' : 'Defeat';
+  v.className = 'verdict ' + (won ? 'won' : 'lost');
   $('#verdict-text').textContent = state.result;
 }
 
